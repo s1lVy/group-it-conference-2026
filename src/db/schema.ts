@@ -102,7 +102,7 @@ export const workshopSession = pgTable(
     slotId: text("slot_id").notNull(),
     group: text("group").notNull(), // 'A' | 'B' | 'C'
     topic: text("topic").notNull(),
-    location: text("location").notNull(),
+    location: text("location"),
     maxParticipants: integer("max_participants").notNull().default(30),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

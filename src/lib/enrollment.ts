@@ -22,7 +22,7 @@ export type WorkshopSessionPublic = {
   slotId: string
   group: string
   topic: string
-  location: string
+  location: string | null
   maxParticipants: number
   enrollmentCount: number
 }

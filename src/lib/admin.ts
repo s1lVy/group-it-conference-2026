@@ -89,7 +89,7 @@ export const createSession = createServerFn({ method: 'POST' })
       slotId: data.slotId,
       group: data.group,
       topic: data.topic,
-      location: data.location,
+      location: data.location.trim() || null,
       maxParticipants: data.maxParticipants,
     })
     return { ok: true }
@@ -114,7 +114,7 @@ export const updateSession = createServerFn({ method: 'POST' })
         slotId: data.slotId,
         group: data.group,
         topic: data.topic,
-        location: data.location,
+        location: data.location.trim() || null,
         maxParticipants: data.maxParticipants,
         updatedAt: new Date(),
       })

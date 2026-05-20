@@ -19,7 +19,7 @@ function EditSession() {
     slotId: existing.slotId,
     group: existing.group,
     topic: existing.topic,
-    location: existing.location,
+    location: existing.location ?? '',
     maxParticipants: existing.maxParticipants,
   })
 
@@ -30,7 +30,6 @@ function EditSession() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.topic.trim()) { setError('Topic is required'); return }
-    if (!form.location.trim()) { setError('Location is required'); return }
     if (form.maxParticipants < 1) { setError('Max participants must be at least 1'); return }
     setError(null)
     setSaving(true)
