@@ -118,7 +118,7 @@ export function SessionForm({
             <select
               value={form.dayId}
               onChange={(e) => set('dayId', e.target.value)}
-              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             >
               {DAYS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
             </select>
@@ -131,7 +131,7 @@ export function SessionForm({
               value={form.time}
               onChange={(e) => set('time', e.target.value)}
               placeholder="09:00"
-              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
 
@@ -140,7 +140,7 @@ export function SessionForm({
             <select
               value={form.group}
               onChange={(e) => set('group', e.target.value)}
-              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             >
               {GROUPS.map((g) => <option key={g} value={g}>Group {g}</option>)}
             </select>
@@ -158,7 +158,7 @@ export function SessionForm({
             value={form.topic}
             onChange={(e) => set('topic', e.target.value)}
             placeholder="e.g. Sales IT"
-            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
 
@@ -169,7 +169,7 @@ export function SessionForm({
             value={form.location}
             onChange={(e) => set('location', e.target.value)}
             placeholder="e.g. Room A"
-            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
 
@@ -181,7 +181,7 @@ export function SessionForm({
             max={1000}
             value={form.maxParticipants}
             onChange={(e) => set('maxParticipants', Number(e.target.value))}
-            className="w-32 border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-32 border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
 
@@ -189,7 +189,7 @@ export function SessionForm({
           <button
             type="submit"
             disabled={saving}
-            className="h-9 px-5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            className="h-9 px-5 text-sm font-medium bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving…' : submitLabel}
           </button>

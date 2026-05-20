@@ -109,14 +109,14 @@ const GROUP_BADGE: Record<string, string> = {
 }
 
 const TYPE_BORDER: Record<SessionType, string> = {
-  workshop: 'border-l-4 border-l-indigo-400',
+  workshop: 'border-l-4 border-l-teal-400',
   break: 'border-l-4 border-l-neutral-300 bg-neutral-50',
   plenary: 'border-l-4 border-l-amber-400',
   networking: 'border-l-4 border-l-rose-400',
 }
 
 const TYPE_PILL: Record<SessionType, string> = {
-  workshop: 'bg-indigo-100 text-indigo-700',
+  workshop: 'bg-teal-100 text-teal-700',
   break: 'bg-neutral-100 text-neutral-500',
   plenary: 'bg-amber-100 text-amber-700',
   networking: 'bg-rose-100 text-rose-700',
@@ -224,13 +224,13 @@ function FeedbackSection({
         onChange={(e) => { setComment(e.target.value); setSaved(false) }}
         placeholder="Optional comment…"
         rows={2}
-        className="mt-2 w-full text-xs rounded border border-black/10 bg-white/60 px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-400 placeholder:text-neutral-400"
+        className="mt-2 w-full text-xs rounded border border-black/10 bg-white/60 px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-teal-400 placeholder:text-neutral-400"
       />
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
       <button
         disabled={saving || rating === 0}
         onClick={handleSubmit}
-        className="mt-2 w-full text-xs font-medium py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="mt-2 w-full text-xs font-medium py-1.5 rounded bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {saving ? 'Saving…' : saved ? 'Feedback saved ✓' : 'Submit feedback'}
       </button>
@@ -264,14 +264,14 @@ function WorkshopCard({
   const badge = GROUP_BADGE[ws.group] ?? 'bg-neutral-600 text-white'
 
   return (
-    <div className={`rounded-lg border px-4 py-3 flex flex-col gap-2 transition-all ${colors} ${enrolled ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`}>
+    <div className={`rounded-lg border px-4 py-3 flex flex-col gap-2 transition-all ${colors} ${enrolled ? 'ring-2 ring-teal-500 ring-offset-1' : ''}`}>
       <div className="flex items-center gap-2">
         <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ${badge}`}>
           {ws.group}
         </span>
         <span className="text-xs font-semibold opacity-70">Group {ws.group}</span>
         {enrolled && (
-          <span className="ml-auto text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+          <span className="ml-auto text-xs font-semibold text-teal-600 bg-teal-100 px-2 py-0.5 rounded-full">
             Enrolled
           </span>
         )}
@@ -291,7 +291,7 @@ function WorkshopCard({
       <div className="flex items-center gap-2">
         <div className="flex-1 h-1.5 bg-black/10 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-red-500' : 'bg-indigo-500'}`}
+            className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-red-500' : 'bg-teal-500'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -310,7 +310,7 @@ function WorkshopCard({
         <button
           disabled={pending || (full && !enrolled)}
           onClick={() => onEnroll(slotId, ws.id)}
-          className="mt-1 w-full text-xs font-medium py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-1 w-full text-xs font-medium py-1.5 rounded bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {pending ? 'Saving…' : full ? 'Full' : 'Enroll'}
         </button>
@@ -477,14 +477,14 @@ function Home() {
         </div>
 
         {/* Event info box */}
-        <div className="mb-8 rounded-xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
-          <div className="bg-indigo-600 px-5 py-3">
+        <div className="mb-8 rounded-xl border border-teal-100 bg-white shadow-sm overflow-hidden">
+          <div className="bg-teal-600 px-5 py-3">
             <p className="text-white font-bold text-base tracking-wide">GroupIT — Porsche Holding Salzburg</p>
           </div>
           <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-4">
               <div className="text-center leading-none">
-                <p className="text-4xl font-black text-indigo-600">10 – 11</p>
+                <p className="text-4xl font-black text-teal-600">10 – 11</p>
                 <p className="text-sm font-semibold text-neutral-500 mt-1 uppercase tracking-widest">June 2026</p>
               </div>
               <div className="w-px h-12 bg-neutral-200 hidden sm:block" />
@@ -515,7 +515,7 @@ function Home() {
           {agenda.map((day) => (
             <section key={day.dayId}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full">{day.label}</div>
+                <div className="bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full">{day.label}</div>
                 <h2 className="text-lg font-semibold text-neutral-800">{day.date}</h2>
               </div>
               <div className="space-y-3">
