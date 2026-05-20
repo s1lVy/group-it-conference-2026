@@ -222,104 +222,15 @@ function FeedbackPanel({ workshopId, topic, onClose }: {
   )
 }
 
-// ─── Create workshop session modal ────────────────────────────────────────────
+// ─── Workshop session modal (create + edit) ───────────────────────────────────
 
-function CreateSessionModal({ onClose, onCreated }: {
+function SessionModal({ sessionId, onClose, onDone }: {
+  sessionId: string | null  // null = create mode, string = edit mode
   onClose: () => void
-  onCreated: () => void
+  onDone: () => void
 }) {
   const [, startTransition] = useTransition()
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ dayId: 'day1', time: '09:00', group: 'A', topic: '', location: '', maxParticipants: 30 })
-
-  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
-    setForm((f) => ({ ...f, [k]: v }))
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.topic.trim()) { setError('Topic is required'); return }
-    if (!form.time.trim()) { setError('Time is required'); return }
-    if (form.maxParticipants < 1) { setError('Max participants must be at least 1'); return }
-    // Build slotId from day + time: day1 + "09:00" → "day1-0900"
-    const slotId = `${form.dayId}-${form.time.replace(':', '')}`
-    setError(null); setSaving(true)
-    startTransition(async () => {
-      try {
-        await createSession({ data: { slotId, group: form.group, topic: form.topic, location: form.location, maxParticipants: form.maxParticipants } })
-        onCreated()
-      } catch (err: any) { setError(err?.message ?? 'Failed to save'); setSaving(false) }
-    })
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-          <h2 className="text-base font-semibold text-neutral-900">New Workshop Session</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">Day</label>
-              <select value={form.dayId} onChange={(e) => set('dayId', e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {DAYS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">Time <span className="text-red-500">*</span></label>
-              <input type="text" value={form.time} onChange={(e) => set('time', e.target.value)} placeholder="09:00" autoFocus className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">Group</label>
-              <select value={form.group} onChange={(e) => set('group', e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {GROUPS.map((g) => <option key={g} value={g}>Group {g}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">Topic <span className="text-red-500">*</span></label>
-            <input type="text" value={form.topic} onChange={(e) => set('topic', e.target.value)} placeholder="e.g. Sales IT" className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">Location</label>
-            <input type="text" value={form.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Room A" className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">Max participants</label>
-            <input type="number" min={1} max={1000} value={form.maxParticipants} onChange={(e) => set('maxParticipants', Number(e.target.value))} className="w-28 border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div className="text-xs text-neutral-400">
-            Slot ID: <code className="font-mono">{form.dayId}-{form.time.replace(':', '')}</code>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="h-9 px-4 text-sm font-medium text-neutral-600 hover:text-neutral-900">Cancel</button>
-            <button type="submit" disabled={saving} className="h-9 px-5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50">
-              {saving ? 'Creating…' : 'Create session'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── Edit workshop session modal ──────────────────────────────────────────────
-
-function EditSessionModal({ sessionId, onClose, onSaved }: {
-  sessionId: string
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [, startTransition] = useTransition()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!!sessionId)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ dayId: 'day1', time: '09:00', group: 'A', topic: '', location: '', maxParticipants: 30 })
@@ -329,6 +240,7 @@ function EditSessionModal({ sessionId, onClose, onSaved }: {
   }
 
   useState(() => {
+    if (!sessionId) return
     getSessionForEdit({ data: { id: sessionId } }).then((s) => {
       const dashIdx = s.slotId.indexOf('-')
       const dayId = dashIdx !== -1 ? s.slotId.slice(0, dashIdx) : 'day1'
@@ -351,8 +263,12 @@ function EditSessionModal({ sessionId, onClose, onSaved }: {
     setError(null); setSaving(true)
     startTransition(async () => {
       try {
-        await updateSession({ data: { id: sessionId, slotId, group: form.group, topic: form.topic, location: form.location, maxParticipants: form.maxParticipants } })
-        onSaved()
+        if (sessionId) {
+          await updateSession({ data: { id: sessionId, slotId, group: form.group, topic: form.topic, location: form.location, maxParticipants: form.maxParticipants } })
+        } else {
+          await createSession({ data: { slotId, group: form.group, topic: form.topic, location: form.location, maxParticipants: form.maxParticipants } })
+        }
+        onDone()
       } catch (err: any) { setError(err?.message ?? 'Failed to save'); setSaving(false) }
     })
   }
@@ -361,7 +277,7 @@ function EditSessionModal({ sessionId, onClose, onSaved }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-          <h2 className="text-base font-semibold text-neutral-900">Edit Workshop Session</h2>
+          <h2 className="text-base font-semibold text-neutral-900">{sessionId ? 'Edit' : 'New'} Workshop Session</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -384,7 +300,7 @@ function EditSessionModal({ sessionId, onClose, onSaved }: {
               </div>
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1">Time <span className="text-red-500">*</span></label>
-                <input type="text" value={form.time} onChange={(e) => set('time', e.target.value)} placeholder="09:00" className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="text" value={form.time} onChange={(e) => set('time', e.target.value)} placeholder="09:00" autoFocus className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-neutral-600 mb-1">Group</label>
@@ -395,7 +311,7 @@ function EditSessionModal({ sessionId, onClose, onSaved }: {
             </div>
             <div>
               <label className="block text-xs font-medium text-neutral-600 mb-1">Topic <span className="text-red-500">*</span></label>
-              <input type="text" value={form.topic} onChange={(e) => set('topic', e.target.value)} placeholder="e.g. Sales IT" autoFocus className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" value={form.topic} onChange={(e) => set('topic', e.target.value)} placeholder="e.g. Sales IT" className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
               <label className="block text-xs font-medium text-neutral-600 mb-1">Location</label>
@@ -411,7 +327,7 @@ function EditSessionModal({ sessionId, onClose, onSaved }: {
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={onClose} className="h-9 px-4 text-sm font-medium text-neutral-600 hover:text-neutral-900">Cancel</button>
               <button type="submit" disabled={saving} className="h-9 px-5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50">
-                {saving ? 'Saving…' : 'Save changes'}
+                {saving ? 'Saving…' : sessionId ? 'Save changes' : 'Create session'}
               </button>
             </div>
           </form>
@@ -420,7 +336,6 @@ function EditSessionModal({ sessionId, onClose, onSaved }: {
     </div>
   )
 }
-
 // ─── Agenda slot modal (create / edit) ────────────────────────────────────────
 
 function AgendaSlotModal({ defaultDayId, existing, onClose, onSaved }: {
@@ -678,8 +593,7 @@ function AdminLayout() {
   const { sessions, agendaSlots } = Route.useLoaderData()
   const router = useRouter()
 
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editSessionId, setEditSessionId] = useState<string | null>(null)
+  const [sessionModal, setSessionModal] = useState<{ sessionId: string | null } | null>(null)
   const [agendaModal, setAgendaModal] = useState<{ dayId: string; existing: AgendaSlotRow | null } | null>(null)
   const [enrolleePanel, setEnrolleePanel] = useState<WorkshopSessionRow | null>(null)
   const [feedbackPanel, setFeedbackPanel] = useState<WorkshopSessionRow | null>(null)
@@ -733,17 +647,11 @@ function AdminLayout() {
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Modals */}
-      {showCreateModal && (
-        <CreateSessionModal
-          onClose={() => setShowCreateModal(false)}
-          onCreated={() => { setShowCreateModal(false); invalidate() }}
-        />
-      )}
-      {editSessionId && (
-        <EditSessionModal
-          sessionId={editSessionId}
-          onClose={() => setEditSessionId(null)}
-          onSaved={() => { setEditSessionId(null); invalidate() }}
+      {sessionModal && (
+        <SessionModal
+          sessionId={sessionModal.sessionId}
+          onClose={() => setSessionModal(null)}
+          onDone={() => { setSessionModal(null); invalidate() }}
         />
       )}
       {agendaModal && (
@@ -801,7 +709,7 @@ function AdminLayout() {
                   <div className="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full">{day.label}</div>
                   <h2 className="text-lg font-semibold text-neutral-800">{day.date}</h2>
                   <button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => setSessionModal({ sessionId: null })}
                     className="flex items-center gap-1 h-6 px-2 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition-colors ml-auto"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -830,7 +738,7 @@ function AdminLayout() {
                                 key={s.id}
                                 s={s}
                                 onDelete={handleDeleteSession}
-                                onEdit={setEditSessionId}
+                                onEdit={(id) => setSessionModal({ sessionId: id })}
                                 onViewEnrollees={setEnrolleePanel}
                                 onViewFeedback={setFeedbackPanel}
                               />
