@@ -236,6 +236,7 @@ function WorkshopCard({
   ws,
   slotId,
   enrolled,
+  enrolledInSlot,
   full,
   existingFeedback,
   onEnroll,
@@ -246,9 +247,10 @@ function WorkshopCard({
   ws: WorkshopSessionPublic
   slotId: string
   enrolled: boolean
+  enrolledInSlot: boolean
   full: boolean
   existingFeedback: FeedbackPublic | null
-  onEnroll: (slotId: string, workshopId: string) => void
+  onEnroll: (slotId: string, workshopId: string, onError: (msg: string) => void) => void
   onUnenroll: (slotId: string) => void
   onFeedbackSaved: () => void
   pending: boolean
@@ -256,6 +258,9 @@ function WorkshopCard({
   const pct = Math.min(100, (ws.enrollmentCount / ws.maxParticipants) * 100)
   const colors = GROUP_COLORS[ws.group] ?? 'bg-neutral-50 text-neutral-900 border-neutral-200'
   const badge = GROUP_BADGE[ws.group] ?? 'bg-neutral-600 text-white'
+  const [error, setError] = useState<string | null>(null)
+
+  const blockedByOther = enrolledInSlot && !enrolled
 
   return (
     <div className={`rounded-lg border px-4 py-3 flex flex-col gap-2 transition-all duration-200 ${colors} ${enrolled ? 'ring-2 ring-teal-500 ring-offset-1 shadow-md' : 'border-transparent hover:border-current hover:shadow-md'}`}>
@@ -301,13 +306,23 @@ function WorkshopCard({
           {pending ? 'Saving…' : 'Remove enrollment'}
         </button>
       ) : (
-        <button
-          disabled={pending || (full && !enrolled)}
-          onClick={() => onEnroll(slotId, ws.id)}
-          className="mt-1 w-full text-xs font-medium py-1.5 rounded bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {pending ? 'Saving…' : full ? 'Full' : 'Enroll'}
-        </button>
+        <>
+          <button
+            disabled={pending || full || blockedByOther}
+            onClick={() => { setError(null); onEnroll(slotId, ws.id, setError) }}
+            className="mt-1 w-full text-xs font-medium py-1.5 rounded bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {pending ? 'Saving…' : full ? 'Full' : 'Enroll'}
+          </button>
+          {blockedByOther && !error && (
+            <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 leading-snug">
+              You're already enrolled in another workshop for this slot. Remove that enrollment first.
+            </p>
+          )}
+          {error && (
+            <p className="text-xs text-red-700 bg-red-50 rounded px-2 py-1.5 leading-snug">{error}</p>
+          )}
+        </>
       )}
 
       {enrolled && (
@@ -335,7 +350,7 @@ function SlotCard({
   workshops: WorkshopSessionPublic[]
   enrollments: Record<string, string>
   feedbacks: Record<string, FeedbackPublic>
-  onEnroll: (slotId: string, workshopId: string) => void
+  onEnroll: (slotId: string, workshopId: string, onError: (msg: string) => void) => void
   onUnenroll: (slotId: string) => void
   onFeedbackSaved: () => void
   pendingSlot: string | null
@@ -367,6 +382,7 @@ function SlotCard({
                   ws={ws}
                   slotId={slot.id}
                   enrolled={enrolledWorkshopId === ws.id}
+                  enrolledInSlot={!!enrolledWorkshopId}
                   full={ws.enrollmentCount >= ws.maxParticipants && enrolledWorkshopId !== ws.id}
                   existingFeedback={feedbacks[ws.id] ?? null}
                   onEnroll={onEnroll}
@@ -390,7 +406,6 @@ function Home() {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [pendingSlot, setPendingSlot] = useState<string | null>(null)
-  const [enrollError, setEnrollError] = useState<string | null>(null)
 
   // Build slotId → workshopId map
   const enrollments: Record<string, string> = {}
@@ -412,15 +427,14 @@ function Home() {
 
   const agenda = buildAgenda(agendaSlots, sessions)
 
-  function handleEnroll(slotId: string, workshopId: string) {
+  function handleEnroll(slotId: string, workshopId: string, onError: (msg: string) => void) {
     setPendingSlot(slotId)
-    setEnrollError(null)
     startTransition(async () => {
       try {
         await enroll({ data: { slotId, workshopId } })
         router.invalidate()
       } catch (err: any) {
-        setEnrollError(err?.message ?? 'Failed to enroll')
+        onError(err?.message ?? 'Failed to enroll')
       } finally {
         setPendingSlot(null)
       }
@@ -429,7 +443,6 @@ function Home() {
 
   function handleUnenroll(slotId: string) {
     setPendingSlot(slotId)
-    setEnrollError(null)
     startTransition(async () => {
       try {
         await unenroll({ data: { slotId } })
@@ -498,12 +511,6 @@ function Home() {
             </div>
           </div>
         </div>
-
-        {enrollError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-            {enrollError}
-          </div>
-        )}
 
         <GroupLegend />
 
