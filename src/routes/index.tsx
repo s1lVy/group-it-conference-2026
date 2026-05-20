@@ -315,7 +315,7 @@ function WorkshopCard({
             {pending ? 'Saving…' : full ? 'Full' : 'Enroll'}
           </button>
           {blockedByOther && !error && (
-            <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 leading-snug">
+            <p className="text-xs text-neutral-500 leading-snug">
               You're already enrolled in another workshop for this slot. Remove that enrollment first.
             </p>
           )}
