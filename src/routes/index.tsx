@@ -108,12 +108,6 @@ const GROUP_BADGE: Record<string, string> = {
   C: 'bg-violet-600 text-white',
 }
 
-const TYPE_BORDER: Record<SessionType, string> = {
-  workshop: 'border-l-4 border-l-teal-400',
-  break: 'border-l-4 border-l-neutral-300 bg-neutral-50',
-  plenary: 'border-l-4 border-l-amber-400',
-  networking: 'border-l-4 border-l-rose-400',
-}
 
 const TYPE_PILL: Record<SessionType, string> = {
   workshop: 'bg-teal-100 text-teal-700',
@@ -216,7 +210,7 @@ function FeedbackSection({
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-black/10">
+    <div className="mt-3 pt-3">
       <p className="text-xs font-semibold text-neutral-600 mb-2">Your Feedback</p>
       <StarRating value={rating} onChange={(v) => { setRating(v); setSaved(false) }} />
       <textarea
@@ -264,7 +258,7 @@ function WorkshopCard({
   const badge = GROUP_BADGE[ws.group] ?? 'bg-neutral-600 text-white'
 
   return (
-    <div className={`rounded-lg border px-4 py-3 flex flex-col gap-2 transition-all ${colors} ${enrolled ? 'ring-2 ring-teal-500 ring-offset-1' : ''}`}>
+    <div className={`rounded-lg border px-4 py-3 flex flex-col gap-2 transition-all duration-200 ${colors} ${enrolled ? 'ring-2 ring-teal-500 ring-offset-1 shadow-md' : 'border-transparent hover:border-current hover:shadow-md'}`}>
       <div className="flex items-center gap-2">
         <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ${badge}`}>
           {ws.group}
@@ -348,8 +342,10 @@ function SlotCard({
 }) {
   const enrolledWorkshopId = enrollments[slot.id]
 
+  const slotBg = slot.type === 'break' ? 'bg-neutral-50' : 'bg-white'
+
   return (
-    <div className={`rounded-xl bg-white shadow-sm border border-neutral-200 overflow-hidden ${TYPE_BORDER[slot.type]}`}>
+    <div className={`group rounded-xl ${slotBg} border border-transparent hover:border-neutral-200 hover:shadow-md transition-all duration-200 overflow-hidden`}>
       <div className="px-5 py-4">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div>
@@ -477,7 +473,7 @@ function Home() {
         </div>
 
         {/* Event info box */}
-        <div className="mb-8 rounded-xl border border-teal-100 bg-white shadow-sm overflow-hidden">
+        <div className="mb-8 rounded-xl border border-transparent hover:border-teal-100 hover:shadow-md transition-all duration-200 bg-white overflow-hidden">
           <div className="bg-teal-600 px-5 py-3">
             <p className="text-white font-bold text-base tracking-wide">GroupIT — Porsche Holding Salzburg</p>
           </div>
