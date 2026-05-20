@@ -11,22 +11,24 @@ function generateId() {
 }
 
 // Map Postgres error codes / constraint names to user-friendly messages.
+// Drizzle wraps pg errors — the actual DatabaseError may be on err.cause.
 function friendlyDbError(err: unknown): never {
-  const e = err as any
+  // Unwrap Drizzle's wrapper: the real pg DatabaseError is on .cause
+  const e = ((err as any)?.cause ?? err) as any
   const code: string = e?.code ?? ''
   const constraint: string = e?.constraint ?? ''
   if (code === '23505') {
-    if (constraint === 'workshop_session_slot_group_unique')
+    if (constraint.includes('slot_group'))
       throw new Error('A session for this group already exists at that time. Choose a different group or time.')
-    if (constraint === 'enrollment_user_slot_unique')
+    if (constraint.includes('user_slot'))
       throw new Error('You are already enrolled in a session for this time slot.')
-    if (constraint === 'feedback_user_workshop_unique')
+    if (constraint.includes('feedback'))
       throw new Error('You have already submitted feedback for this session.')
     throw new Error('A record with these details already exists.')
   }
   if (code === '23503') throw new Error('This record references something that no longer exists.')
   if (code === '23502') throw new Error('A required field is missing.')
-  throw new Error(e?.message ?? 'An unexpected error occurred. Please try again.')
+  throw new Error('An unexpected error occurred. Please try again.')
 }
 
 async function requireAdmin() {
