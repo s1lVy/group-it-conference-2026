@@ -1,17 +1,11 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useTransition } from 'react'
-import { getRequest } from '@tanstack/react-start/server'
-import { auth } from '#/lib/auth'
 import BetterAuthHeader from '#/integrations/better-auth/header-user'
 import { authClient } from '#/lib/auth-client'
-import { getMyEnrollments, enroll, unenroll } from '#/lib/enrollment'
+import { getScheduleData, enroll, unenroll } from '#/lib/enrollment'
 
 export const Route = createFileRoute('/')({
-  loader: async () => {
-    const session = await auth.api.getSession({ headers: getRequest().headers })
-    if (!session?.user) throw redirect({ to: '/login' })
-    return getMyEnrollments()
-  },
+  loader: () => getScheduleData(),
   component: Home,
 })
 

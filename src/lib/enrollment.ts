@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import { redirect } from '@tanstack/react-router'
 import { eq, and } from 'drizzle-orm'
 import { auth } from '#/lib/auth'
 import { db } from '#/db'
@@ -16,11 +17,12 @@ async function requireUser() {
   return session.user
 }
 
-export const getMyEnrollments = createServerFn({ method: 'GET' }).handler(
+// Used as the route loader — redirects to /login if not signed in
+export const getScheduleData = createServerFn({ method: 'GET' }).handler(
   async () => {
     const request = getRequest()
     const session = await auth.api.getSession({ headers: request.headers })
-    if (!session?.user) return []
+    if (!session?.user) throw redirect({ to: '/login' })
     return db
       .select({ slotId: enrollment.slotId, workshopId: enrollment.workshopId })
       .from(enrollment)
