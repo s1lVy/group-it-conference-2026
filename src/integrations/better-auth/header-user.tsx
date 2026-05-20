@@ -24,7 +24,7 @@ export default function BetterAuthHeader() {
         <span className="text-sm text-neutral-700 dark:text-neutral-300">{session.user.name}</span>
         <button
           onClick={() => {
-            void authClient.signOut()
+            void authClient.signOut({ fetchOptions: { onSuccess: () => { window.location.href = '/login' } } })
           }}
           className="h-9 px-4 text-sm font-medium bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors rounded"
         >
@@ -34,20 +34,5 @@ export default function BetterAuthHeader() {
     )
   }
 
-  return (
-    <button
-      onClick={() => {
-        void authClient.signIn.social({ provider: 'microsoft', callbackURL: '/' })
-      }}
-      className="h-9 px-4 text-sm font-medium bg-[#0078d4] hover:bg-[#106ebe] text-white transition-colors rounded flex items-center gap-2"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 21 21" aria-hidden="true">
-        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-      </svg>
-      Sign in with Microsoft
-    </button>
-  )
+  return null
 }
