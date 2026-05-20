@@ -6,13 +6,20 @@ export const Route = createFileRoute('/admin/sessions/new')({
   component: NewSession,
 })
 
-const SLOTS = [
-  { id: 'day1-morning', label: 'Day 1 — Morning (Wed 09:00)' },
-  { id: 'day1-afternoon', label: 'Day 1 — Afternoon (Wed 13:00)' },
-  { id: 'day2-morning', label: 'Day 2 — Morning (Thu 09:00)' },
+const DAYS = [
+  { id: 'day1', label: 'Day 1 — Wed 10 June' },
+  { id: 'day2', label: 'Day 2 — Thu 11 June' },
 ]
-
 const GROUPS = ['A', 'B', 'C']
+
+// Parse a slotId like "day1-0900" → { dayId: 'day1', time: '09:00' }
+function parseSlotId(slotId: string): { dayId: string; time: string } {
+  const parts = slotId.split('-')
+  const dayId = parts[0] ?? 'day1'
+  const rawTime = parts[1] ?? '0900'
+  const time = rawTime.length === 4 ? `${rawTime.slice(0, 2)}:${rawTime.slice(2)}` : rawTime
+  return { dayId, time }
+}
 
 function NewSession() {
   const router = useRouter()
@@ -21,7 +28,8 @@ function NewSession() {
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
-    slotId: 'day1-morning',
+    dayId: 'day1',
+    time: '09:00',
     group: 'A',
     topic: '',
     location: '',
@@ -35,12 +43,14 @@ function NewSession() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.topic.trim()) { setError('Topic is required'); return }
+    if (!form.time.trim()) { setError('Time is required'); return }
     if (form.maxParticipants < 1) { setError('Max participants must be at least 1'); return }
+    const slotId = `${form.dayId}-${form.time.replace(':', '')}`
     setError(null)
     setSaving(true)
     startTransition(async () => {
       try {
-        await createSession({ data: { ...form } })
+        await createSession({ data: { slotId, group: form.group, topic: form.topic, location: form.location, maxParticipants: form.maxParticipants } })
         router.navigate({ to: '/admin' })
       } catch (err: any) {
         setError(err?.message ?? 'Failed to save')
@@ -70,8 +80,8 @@ export function SessionForm({
   submitLabel,
 }: {
   title: string
-  form: { slotId: string; group: string; topic: string; location: string; maxParticipants: number }
-  set: <K extends 'slotId' | 'group' | 'topic' | 'location' | 'maxParticipants'>(k: K, v: any) => void
+  form: { dayId: string; time: string; group: string; topic: string; location: string; maxParticipants: number }
+  set: <K extends 'dayId' | 'time' | 'group' | 'topic' | 'location' | 'maxParticipants'>(k: K, v: any) => void
   onSubmit: (e: React.FormEvent) => void
   error: string | null
   saving: boolean
@@ -91,16 +101,27 @@ export function SessionForm({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Timeslot</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Day</label>
             <select
-              value={form.slotId}
-              onChange={(e) => set('slotId', e.target.value)}
+              value={form.dayId}
+              onChange={(e) => set('dayId', e.target.value)}
               className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              {SLOTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+              {DAYS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Time <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={form.time}
+              onChange={(e) => set('time', e.target.value)}
+              placeholder="09:00"
+              className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
           </div>
 
           <div>
@@ -115,8 +136,12 @@ export function SessionForm({
           </div>
         </div>
 
+        <div className="text-xs text-neutral-400">
+          Slot ID: <code className="font-mono">{form.dayId}-{form.time.replace(':', '')}</code>
+        </div>
+
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">Topic</label>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Topic <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={form.topic}
@@ -165,3 +190,5 @@ export function SessionForm({
     </div>
   )
 }
+
+export { parseSlotId }

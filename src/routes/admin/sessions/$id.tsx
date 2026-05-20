@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState, useTransition } from 'react'
 import { getSessionForEdit, updateSession } from '#/lib/admin'
-import { SessionForm } from './new'
+import { SessionForm, parseSlotId } from './new'
 
 export const Route = createFileRoute('/admin/sessions/$id')({
   loader: ({ params }) => getSessionForEdit({ data: { id: params.id } }),
@@ -15,8 +15,11 @@ function EditSession() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const { dayId: initialDayId, time: initialTime } = parseSlotId(existing.slotId)
+
   const [form, setForm] = useState({
-    slotId: existing.slotId,
+    dayId: initialDayId,
+    time: initialTime,
     group: existing.group,
     topic: existing.topic,
     location: existing.location ?? '',
@@ -30,12 +33,14 @@ function EditSession() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.topic.trim()) { setError('Topic is required'); return }
+    if (!form.time.trim()) { setError('Time is required'); return }
     if (form.maxParticipants < 1) { setError('Max participants must be at least 1'); return }
+    const slotId = `${form.dayId}-${form.time.replace(':', '')}`
     setError(null)
     setSaving(true)
     startTransition(async () => {
       try {
-        await updateSession({ data: { id: existing.id, ...form } })
+        await updateSession({ data: { id: existing.id, slotId, group: form.group, topic: form.topic, location: form.location, maxParticipants: form.maxParticipants } })
         router.navigate({ to: '/admin' })
       } catch (err: any) {
         setError(err?.message ?? 'Failed to save')

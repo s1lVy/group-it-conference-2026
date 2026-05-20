@@ -4,7 +4,7 @@ import { redirect } from '@tanstack/react-router'
 import { eq, sql } from 'drizzle-orm'
 import { auth } from '#/lib/auth'
 import { db } from '#/db'
-import { adminUser, workshopSession, enrollment, agendaSlot, user } from '#/db/schema'
+import { adminUser, workshopSession, enrollment, agendaSlot, user, feedback } from '#/db/schema'
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -34,6 +34,12 @@ export type EnrolleeRow = {
   name: string
   email: string
   enrolledAt: Date
+}
+
+export type FeedbackRow = {
+  rating: number
+  comment: string | null
+  submittedAt: Date
 }
 
 // ─── Main admin data load ──────────────────────────────────────────────────────
@@ -205,3 +211,26 @@ export const checkIsAdmin = createServerFn({ method: 'GET' }).handler(async () =
   })
   return !!admin
 })
+
+// ─── Anonymized feedback for a workshop session ───────────────────────────────
+
+export const getFeedbackForSession = createServerFn({ method: 'GET' })
+  .inputValidator((data: { workshopId: string }) => data)
+  .handler(async ({ data }): Promise<{ rows: FeedbackRow[]; avgRating: number | null; counts: number[] }> => {
+    await requireAdmin()
+
+    const rows = await db
+      .select({
+        rating: feedback.rating,
+        comment: feedback.comment,
+        submittedAt: feedback.submittedAt,
+      })
+      .from(feedback)
+      .where(eq(feedback.workshopId, data.workshopId))
+      .orderBy(feedback.submittedAt)
+
+    const counts = [1, 2, 3, 4, 5].map((star) => rows.filter((r) => r.rating === star).length)
+    const avgRating = rows.length > 0 ? rows.reduce((s, r) => s + r.rating, 0) / rows.length : null
+
+    return { rows, avgRating, counts }
+  })

@@ -31,19 +31,33 @@ interface ComputedDay {
   slots: ComputedSlot[]
 }
 
-// Hardcoded workshop slot definitions — these correspond to workshopSession.slotId values
-const WORKSHOP_SLOTS: Record<string, ComputedSlot> = {
-  'day1-morning': { id: 'day1-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true, sortOrder: 10 },
-  'day1-afternoon': { id: 'day1-afternoon', time: '13:00', title: 'Parallel Workshop Sessions — Afternoon', type: 'workshop', isWorkshopSlot: true, sortOrder: 30 },
-  'day2-morning': { id: 'day2-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true, sortOrder: 10 },
+// Hardcoded day metadata — dates and labels only
+const DAY_META: Record<string, { label: string; date: string }> = {
+  day1: { label: 'Day 1', date: 'Wednesday, 10 June 2026' },
+  day2: { label: 'Day 2', date: 'Thursday, 11 June 2026' },
 }
 
-const DAY_META: Record<string, { label: string; date: string; workshopSlots: string[] }> = {
-  day1: { label: 'Day 1', date: 'Wednesday, 10 June 2026', workshopSlots: ['day1-morning', 'day1-afternoon'] },
-  day2: { label: 'Day 2', date: 'Thursday, 11 June 2026', workshopSlots: ['day2-morning'] },
-}
+// Derive workshop slots from the sessions list — no hardcoding
+function buildAgenda(agendaSlots: AgendaSlotPublic[], sessions: WorkshopSessionPublic[]): ComputedDay[] {
+  // Collect unique slotIds and their parsed time
+  const workshopSlotMap: Record<string, ComputedSlot> = {}
+  for (const s of sessions) {
+    if (!workshopSlotMap[s.slotId]) {
+      const parts = s.slotId.split('-') // e.g. ['day1', '0900']
+      const rawTime = parts[1] ?? ''
+      const time = rawTime.length === 4 ? `${rawTime.slice(0, 2)}:${rawTime.slice(2)}` : rawTime
+      const sortOrder = parseInt(rawTime || '0', 10)
+      workshopSlotMap[s.slotId] = {
+        id: s.slotId,
+        time,
+        title: 'Parallel Workshop Sessions',
+        type: 'workshop',
+        isWorkshopSlot: true,
+        sortOrder,
+      }
+    }
+  }
 
-function buildAgenda(agendaSlots: AgendaSlotPublic[]): ComputedDay[] {
   const days: ComputedDay[] = []
   for (const [dayId, meta] of Object.entries(DAY_META)) {
     const dbSlots: ComputedSlot[] = agendaSlots
@@ -57,7 +71,7 @@ function buildAgenda(agendaSlots: AgendaSlotPublic[]): ComputedDay[] {
         location: s.location,
         sortOrder: s.sortOrder,
       }))
-    const workshopSlots = meta.workshopSlots.map((sid) => WORKSHOP_SLOTS[sid]).filter(Boolean)
+    const workshopSlots = Object.values(workshopSlotMap).filter((s) => s.id.startsWith(dayId + '-'))
     const allSlots = [...workshopSlots, ...dbSlots].sort((a, b) => a.sortOrder - b.sortOrder)
     days.push({ dayId, label: meta.label, date: meta.date, slots: allSlots })
   }
@@ -384,7 +398,7 @@ function Home() {
     ;(sessionsBySlot[s.slotId] ??= []).push(s)
   }
 
-  const agenda = buildAgenda(agendaSlots)
+  const agenda = buildAgenda(agendaSlots, sessions)
 
   function handleEnroll(slotId: string, workshopId: string) {
     setPendingSlot(slotId)
