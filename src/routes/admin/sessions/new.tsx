@@ -13,12 +13,23 @@ const DAYS = [
 const GROUPS = ['A', 'B', 'C']
 
 // Parse a slotId like "day1-0900" → { dayId: 'day1', time: '09:00' }
+// Also handles legacy text slugs: "day1-morning" → { dayId: 'day1', time: '09:00' }
+const LEGACY_SLOT_TIMES: Record<string, string> = {
+  morning: '09:00',
+  afternoon: '13:00',
+  evening: '18:00',
+}
+
 function parseSlotId(slotId: string): { dayId: string; time: string } {
-  const parts = slotId.split('-')
-  const dayId = parts[0] ?? 'day1'
-  const rawTime = parts[1] ?? '0900'
-  const time = rawTime.length === 4 ? `${rawTime.slice(0, 2)}:${rawTime.slice(2)}` : rawTime
-  return { dayId, time }
+  const dashIdx = slotId.indexOf('-')
+  if (dashIdx === -1) return { dayId: slotId, time: '09:00' }
+  const dayId = slotId.slice(0, dashIdx)
+  const rawTime = slotId.slice(dashIdx + 1)
+  if (rawTime in LEGACY_SLOT_TIMES) return { dayId, time: LEGACY_SLOT_TIMES[rawTime] }
+  if (rawTime.length === 4 && /^\d{4}$/.test(rawTime)) {
+    return { dayId, time: `${rawTime.slice(0, 2)}:${rawTime.slice(2)}` }
+  }
+  return { dayId, time: rawTime }
 }
 
 function NewSession() {

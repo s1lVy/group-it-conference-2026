@@ -38,15 +38,24 @@ const DAY_META: Record<string, { label: string; date: string }> = {
 }
 
 // Derive workshop slots from the sessions list — no hardcoding
+const LEGACY_SLOT_TIMES: Record<string, string> = { morning: '09:00', afternoon: '13:00', evening: '18:00' }
+
+function parseSlotTime(slotId: string): string {
+  const dashIdx = slotId.indexOf('-')
+  if (dashIdx === -1) return '00:00'
+  const raw = slotId.slice(dashIdx + 1)
+  if (raw in LEGACY_SLOT_TIMES) return LEGACY_SLOT_TIMES[raw]
+  if (raw.length === 4 && /^\d{4}$/.test(raw)) return `${raw.slice(0, 2)}:${raw.slice(2)}`
+  return raw
+}
+
 function buildAgenda(agendaSlots: AgendaSlotPublic[], sessions: WorkshopSessionPublic[]): ComputedDay[] {
   // Collect unique slotIds and their parsed time
   const workshopSlotMap: Record<string, ComputedSlot> = {}
   for (const s of sessions) {
     if (!workshopSlotMap[s.slotId]) {
-      const parts = s.slotId.split('-') // e.g. ['day1', '0900']
-      const rawTime = parts[1] ?? ''
-      const time = rawTime.length === 4 ? `${rawTime.slice(0, 2)}:${rawTime.slice(2)}` : rawTime
-      const sortOrder = parseInt(rawTime || '0', 10)
+      const time = parseSlotTime(s.slotId)
+      const sortOrder = parseInt(time.replace(':', ''), 10)
       workshopSlotMap[s.slotId] = {
         id: s.slotId,
         time,

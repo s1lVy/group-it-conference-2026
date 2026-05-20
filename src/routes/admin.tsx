@@ -591,13 +591,22 @@ function AdminLayout() {
 
   // Build slot metadata from existing sessions (plus defaults if no sessions yet)
   // Each slot: { id, dayId, time, label }
+  const LEGACY_SLOT_TIMES: Record<string, string> = { morning: '09:00', afternoon: '13:00', evening: '18:00' }
+  function parseSlotTime(slotId: string): string {
+    const dashIdx = slotId.indexOf('-')
+    if (dashIdx === -1) return '00:00'
+    const raw = slotId.slice(dashIdx + 1)
+    if (raw in LEGACY_SLOT_TIMES) return LEGACY_SLOT_TIMES[raw]
+    if (raw.length === 4 && /^\d{4}$/.test(raw)) return `${raw.slice(0, 2)}:${raw.slice(2)}`
+    return raw
+  }
+
   const slotMeta: Record<string, { id: string; dayId: string; time: string }> = {}
   for (const s of sessions) {
     if (!slotMeta[s.slotId]) {
-      const parts = s.slotId.split('-') // e.g. ['day1', '0900']
-      const dayId = parts[0]
-      const rawTime = parts[1] ?? ''
-      const time = rawTime.length === 4 ? `${rawTime.slice(0, 2)}:${rawTime.slice(2)}` : rawTime
+      const dashIdx = s.slotId.indexOf('-')
+      const dayId = dashIdx !== -1 ? s.slotId.slice(0, dashIdx) : s.slotId
+      const time = parseSlotTime(s.slotId)
       slotMeta[s.slotId] = { id: s.slotId, dayId, time }
     }
   }
