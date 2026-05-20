@@ -319,6 +319,33 @@ function Home() {
           <p className="text-neutral-500 text-sm">Select one workshop per parallel session to enroll.</p>
         </div>
 
+        {/* Event info box */}
+        <div className="mb-8 rounded-xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
+          <div className="bg-indigo-600 px-5 py-3">
+            <p className="text-white font-bold text-base tracking-wide">GroupIT — Porsche Holding Salzburg</p>
+          </div>
+          <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="text-center leading-none">
+                <p className="text-4xl font-black text-indigo-600">10 – 11</p>
+                <p className="text-sm font-semibold text-neutral-500 mt-1 uppercase tracking-widest">June 2026</p>
+              </div>
+              <div className="w-px h-12 bg-neutral-200 hidden sm:block" />
+            </div>
+            <div className="flex flex-col gap-1 text-sm text-neutral-700">
+              <p className="font-semibold text-neutral-900">Wyndham Grand Salzburg Conference Centre</p>
+              <p className="text-neutral-500">Fanny-von-Lehnert-Strasse 7, 5020 Salzburg, Austria</p>
+              <p className="flex items-center gap-1 text-neutral-400 text-xs mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Salzburg, Austria
+              </p>
+            </div>
+          </div>
+        </div>
+
         {enrollError && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
             {enrollError}
