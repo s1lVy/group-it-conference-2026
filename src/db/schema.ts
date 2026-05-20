@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, index, unique } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -91,3 +91,22 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+// slotId: e.g. "day1-morning", "day1-afternoon", "day2-morning"
+// workshopId: e.g. "sales-it", "digital-business", "aftersales"
+export const enrollment = pgTable(
+  "enrollment",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    slotId: text("slot_id").notNull(),
+    workshopId: text("workshop_id").notNull(),
+    enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("enrollment_user_slot_unique").on(table.userId, table.slotId),
+    index("enrollment_userId_idx").on(table.userId),
+  ],
+);
