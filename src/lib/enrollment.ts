@@ -122,15 +122,14 @@ export const enroll = createServerFn({ method: 'POST' })
     const existing = await db.query.enrollment.findFirst({
       where: and(eq(enrollment.userId, user.id), eq(enrollment.slotId, data.slotId)),
     })
-    const occupiedByThisUser = existing ? 1 : 0
 
-    if (currentCount - occupiedByThisUser >= ws.maxParticipants) {
-      throw new Error('This workshop is full')
+    if (existing) {
+      throw new Error('You are already enrolled in a workshop for this slot. Remove your current enrollment first.')
     }
 
-    await db
-      .delete(enrollment)
-      .where(and(eq(enrollment.userId, user.id), eq(enrollment.slotId, data.slotId)))
+    if (currentCount >= ws.maxParticipants) {
+      throw new Error('This workshop is full')
+    }
 
     await db.insert(enrollment).values({
       id: generateId(),
