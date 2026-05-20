@@ -4,7 +4,7 @@ import { redirect } from '@tanstack/react-router'
 import { eq, and, count } from 'drizzle-orm'
 import { auth } from '#/lib/auth'
 import { db } from '#/db'
-import { enrollment, workshopSession, agendaSlot, adminUser } from '#/db/schema'
+import { enrollment, workshopSession, agendaSlot, adminUser, feedback } from '#/db/schema'
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -38,11 +38,18 @@ export type AgendaSlotPublic = {
   sortOrder: number
 }
 
+export type FeedbackPublic = {
+  workshopId: string
+  rating: number
+  comment: string | null
+}
+
 export const getScheduleData = createServerFn({ method: 'GET' }).handler(
   async (): Promise<{
     sessions: WorkshopSessionPublic[]
     enrollments: { slotId: string; workshopId: string }[]
     agendaSlots: AgendaSlotPublic[]
+    feedbacks: FeedbackPublic[]
     isAdmin: boolean
   }> => {
     const request = getRequest()
@@ -78,10 +85,20 @@ export const getScheduleData = createServerFn({ method: 'GET' }).handler(
       .from(agendaSlot)
       .orderBy(agendaSlot.dayId, agendaSlot.sortOrder)
 
+    const userFeedbacks = await db
+      .select({
+        workshopId: feedback.workshopId,
+        rating: feedback.rating,
+        comment: feedback.comment,
+      })
+      .from(feedback)
+      .where(eq(feedback.userId, authSession.user.id))
+
     return {
       sessions,
       enrollments: userEnrollments,
       agendaSlots: slots,
+      feedbacks: userFeedbacks,
       isAdmin: !!admin,
     }
   },

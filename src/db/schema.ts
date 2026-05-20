@@ -167,3 +167,30 @@ export const agendaSlot = pgTable("agenda_slot", {
   location: text("location"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
+
+// Feedback submitted by an enrolled user for a workshop session.
+// One row per (userId, workshopId) — upsert on re-submit.
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workshopId: text("workshop_id")
+      .notNull()
+      .references(() => workshopSession.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(), // 1–5
+    comment: text("comment"),
+    submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("feedback_user_workshop_unique").on(table.userId, table.workshopId),
+    index("feedback_workshopId_idx").on(table.workshopId),
+  ],
+);
+
+export const feedbackRelations = relations(feedback, ({ one }) => ({
+  user: one(user, { fields: [feedback.userId], references: [user.id] }),
+  workshop: one(workshopSession, { fields: [feedback.workshopId], references: [workshopSession.id] }),
+}));

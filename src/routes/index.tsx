@@ -1,7 +1,8 @@
 import { createFileRoute, useRouter, Link } from '@tanstack/react-router'
 import { useTransition, useState } from 'react'
 import BetterAuthHeader from '#/integrations/better-auth/header-user'
-import { getScheduleData, enroll, unenroll, type WorkshopSessionPublic, type AgendaSlotPublic } from '#/lib/enrollment'
+import { getScheduleData, enroll, unenroll, type WorkshopSessionPublic, type AgendaSlotPublic, type FeedbackPublic } from '#/lib/enrollment'
+import { submitFeedback } from '#/lib/feedback'
 
 export const Route = createFileRoute('/')({
   loader: () => getScheduleData(),
@@ -121,21 +122,111 @@ function TypePill({ type }: { type: SessionType }) {
   )
 }
 
+function StarRating({
+  value,
+  onChange,
+  readonly,
+}: {
+  value: number
+  onChange?: (v: number) => void
+  readonly?: boolean
+}) {
+  const [hovered, setHovered] = useState(0)
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const filled = star <= (hovered || value)
+        return (
+          <button
+            key={star}
+            type="button"
+            disabled={readonly}
+            onClick={() => onChange?.(star)}
+            onMouseEnter={() => !readonly && setHovered(star)}
+            onMouseLeave={() => !readonly && setHovered(0)}
+            className={`text-lg leading-none transition-colors ${readonly ? 'cursor-default' : 'cursor-pointer'} ${filled ? 'text-amber-400' : 'text-neutral-300'}`}
+            aria-label={`${star} star${star !== 1 ? 's' : ''}`}
+          >
+            ★
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function FeedbackSection({
+  workshopId,
+  existing,
+  onSaved,
+}: {
+  workshopId: string
+  existing: FeedbackPublic | null
+  onSaved: () => void
+}) {
+  const [rating, setRating] = useState(existing?.rating ?? 0)
+  const [comment, setComment] = useState(existing?.comment ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(!!existing)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit() {
+    if (rating === 0) { setError('Please select a rating'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      await submitFeedback({ data: { workshopId, rating, comment: comment || undefined } })
+      setSaved(true)
+      onSaved()
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to save feedback')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-black/10">
+      <p className="text-xs font-semibold text-neutral-600 mb-2">Your Feedback</p>
+      <StarRating value={rating} onChange={(v) => { setRating(v); setSaved(false) }} />
+      <textarea
+        value={comment}
+        onChange={(e) => { setComment(e.target.value); setSaved(false) }}
+        placeholder="Optional comment…"
+        rows={2}
+        className="mt-2 w-full text-xs rounded border border-black/10 bg-white/60 px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-400 placeholder:text-neutral-400"
+      />
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      <button
+        disabled={saving || rating === 0}
+        onClick={handleSubmit}
+        className="mt-2 w-full text-xs font-medium py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {saving ? 'Saving…' : saved ? 'Feedback saved ✓' : 'Submit feedback'}
+      </button>
+    </div>
+  )
+}
+
 function WorkshopCard({
   ws,
   slotId,
   enrolled,
   full,
+  existingFeedback,
   onEnroll,
   onUnenroll,
+  onFeedbackSaved,
   pending,
 }: {
   ws: WorkshopSessionPublic
   slotId: string
   enrolled: boolean
   full: boolean
+  existingFeedback: FeedbackPublic | null
   onEnroll: (slotId: string, workshopId: string) => void
   onUnenroll: (slotId: string) => void
+  onFeedbackSaved: () => void
   pending: boolean
 }) {
   const pct = Math.min(100, (ws.enrollmentCount / ws.maxParticipants) * 100)
@@ -194,6 +285,14 @@ function WorkshopCard({
           {pending ? 'Saving…' : full ? 'Full' : 'Enroll'}
         </button>
       )}
+
+      {enrolled && (
+        <FeedbackSection
+          workshopId={ws.id}
+          existing={existingFeedback}
+          onSaved={onFeedbackSaved}
+        />
+      )}
     </div>
   )
 }
@@ -202,15 +301,19 @@ function SlotCard({
   slot,
   workshops,
   enrollments,
+  feedbacks,
   onEnroll,
   onUnenroll,
+  onFeedbackSaved,
   pendingSlot,
 }: {
   slot: ComputedSlot
   workshops: WorkshopSessionPublic[]
   enrollments: Record<string, string>
+  feedbacks: Record<string, FeedbackPublic>
   onEnroll: (slotId: string, workshopId: string) => void
   onUnenroll: (slotId: string) => void
+  onFeedbackSaved: () => void
   pendingSlot: string | null
 }) {
   const enrolledWorkshopId = enrollments[slot.id]
@@ -239,8 +342,10 @@ function SlotCard({
                   slotId={slot.id}
                   enrolled={enrolledWorkshopId === ws.id}
                   full={ws.enrollmentCount >= ws.maxParticipants && enrolledWorkshopId !== ws.id}
+                  existingFeedback={feedbacks[ws.id] ?? null}
                   onEnroll={onEnroll}
                   onUnenroll={onUnenroll}
+                  onFeedbackSaved={onFeedbackSaved}
                   pending={pendingSlot === slot.id}
                 />
               ))}
@@ -255,7 +360,7 @@ function SlotCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function Home() {
-  const { sessions, enrollments: enrollmentList, agendaSlots, isAdmin } = Route.useLoaderData()
+  const { sessions, enrollments: enrollmentList, agendaSlots, feedbacks: feedbackList, isAdmin } = Route.useLoaderData()
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [pendingSlot, setPendingSlot] = useState<string | null>(null)
@@ -265,6 +370,12 @@ function Home() {
   const enrollments: Record<string, string> = {}
   for (const e of enrollmentList) {
     enrollments[e.slotId] = e.workshopId
+  }
+
+  // Build workshopId → feedback map
+  const feedbacks: Record<string, FeedbackPublic> = {}
+  for (const f of feedbackList) {
+    feedbacks[f.workshopId] = f
   }
 
   // Build slotId → sessions map
@@ -384,8 +495,10 @@ function Home() {
                     slot={slot}
                     workshops={sessionsBySlot[slot.id] ?? []}
                     enrollments={enrollments}
+                    feedbacks={feedbacks}
                     onEnroll={handleEnroll}
                     onUnenroll={handleUnenroll}
+                    onFeedbackSaved={() => router.invalidate()}
                     pendingSlot={pendingSlot}
                   />
                 ))}
