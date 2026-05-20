@@ -153,3 +153,17 @@ export const enrollmentRelations = relations(enrollment, ({ one }) => ({
   user: one(user, { fields: [enrollment.userId], references: [user.id] }),
   workshop: one(workshopSession, { fields: [enrollment.workshopId], references: [workshopSession.id] }),
 }));
+
+// Non-workshop agenda items: lunch, dinner, plenary, networking etc.
+// type: 'break' | 'plenary' | 'networking'
+// sortOrder controls display order within a day
+export const agendaSlot = pgTable("agenda_slot", {
+  id: text("id").primaryKey(),
+  dayId: text("day_id").notNull(), // 'day1' | 'day2'
+  time: text("time").notNull(),    // e.g. '12:00', 'Evening'
+  title: text("title").notNull(),
+  type: text("type").notNull(),    // 'break' | 'plenary' | 'networking'
+  note: text("note"),
+  location: text("location"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});

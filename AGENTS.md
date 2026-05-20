@@ -89,6 +89,18 @@ if (!session?.user) throw new Error('Unauthorized')
 2. `pnpm db:push` (pushes directly; no migration files)
 3. If adding Better Auth tables: `echo y | pnpm dlx @better-auth/cli generate --config src/lib/auth.ts --output src/db/schema.ts`
 
+## Agenda slot seeding
+
+The `agenda_slot` table holds non-workshop rows (lunch, dinner, plenary, networking). Run the seed script **once** after the DB is created:
+
+```bash
+pnpm exec tsx seed-agenda.ts
+```
+
+This inserts 4 default rows (day1 lunch, day1 dinner+networking, day2 lunch, day2 plenary). Do not run again or rows will duplicate. Use `pnpm db:studio` to inspect or fix.
+
+The schedule page (`src/routes/index.tsx`) merges these DB rows with hardcoded workshop slot definitions (`WORKSHOP_SLOTS`) at render time, sorted by `sortOrder`. Workshop slots use sort orders 10/30; non-workshop slots use 20/30/40.
+
 ## Microsoft Entra ID callback URL
 
 When registering or updating the Azure app, the redirect URI must be:

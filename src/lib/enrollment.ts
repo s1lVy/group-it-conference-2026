@@ -4,7 +4,7 @@ import { redirect } from '@tanstack/react-router'
 import { eq, and, count } from 'drizzle-orm'
 import { auth } from '#/lib/auth'
 import { db } from '#/db'
-import { enrollment, workshopSession } from '#/db/schema'
+import { enrollment, workshopSession, agendaSlot, adminUser } from '#/db/schema'
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -27,24 +27,32 @@ export type WorkshopSessionPublic = {
   enrollmentCount: number
 }
 
-// Used as the route loader — redirects to /login if not signed in
-// Returns sessions from DB + this user's enrollments
+export type AgendaSlotPublic = {
+  id: string
+  dayId: string
+  time: string
+  title: string
+  type: string
+  note: string | null
+  location: string | null
+  sortOrder: number
+}
+
 export const getScheduleData = createServerFn({ method: 'GET' }).handler(
   async (): Promise<{
     sessions: WorkshopSessionPublic[]
     enrollments: { slotId: string; workshopId: string }[]
+    agendaSlots: AgendaSlotPublic[]
     isAdmin: boolean
   }> => {
     const request = getRequest()
     const authSession = await auth.api.getSession({ headers: request.headers })
     if (!authSession?.user) throw redirect({ to: '/login' })
 
-    const { adminUser } = await import('#/db/schema')
     const admin = await db.query.adminUser.findFirst({
       where: eq(adminUser.userId, authSession.user.id),
     })
 
-    // Get all workshop sessions with enrollment counts
     const sessions = await db
       .select({
         id: workshopSession.id,
@@ -60,15 +68,20 @@ export const getScheduleData = createServerFn({ method: 'GET' }).handler(
       .groupBy(workshopSession.id)
       .orderBy(workshopSession.slotId, workshopSession.group)
 
-    // Get this user's enrollments
     const userEnrollments = await db
       .select({ slotId: enrollment.slotId, workshopId: enrollment.workshopId })
       .from(enrollment)
       .where(eq(enrollment.userId, authSession.user.id))
 
+    const slots = await db
+      .select()
+      .from(agendaSlot)
+      .orderBy(agendaSlot.dayId, agendaSlot.sortOrder)
+
     return {
       sessions,
       enrollments: userEnrollments,
+      agendaSlots: slots,
       isAdmin: !!admin,
     }
   },
@@ -79,7 +92,6 @@ export const enroll = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const user = await requireUser()
 
-    // Check capacity
     const ws = await db.query.workshopSession.findFirst({
       where: eq(workshopSession.id, data.workshopId),
     })
@@ -90,7 +102,6 @@ export const enroll = createServerFn({ method: 'POST' })
       .from(enrollment)
       .where(eq(enrollment.workshopId, data.workshopId))
 
-    // Check if user already has an enrollment for this slot (doesn't count toward new capacity)
     const existing = await db.query.enrollment.findFirst({
       where: and(eq(enrollment.userId, user.id), eq(enrollment.slotId, data.slotId)),
     })
@@ -100,7 +111,6 @@ export const enroll = createServerFn({ method: 'POST' })
       throw new Error('This workshop is full')
     }
 
-    // Replace any existing enrollment for this slot
     await db
       .delete(enrollment)
       .where(and(eq(enrollment.userId, user.id), eq(enrollment.slotId, data.slotId)))
@@ -119,10 +129,8 @@ export const unenroll = createServerFn({ method: 'POST' })
   .inputValidator((data: { slotId: string }) => data)
   .handler(async ({ data }) => {
     const user = await requireUser()
-
     await db
       .delete(enrollment)
       .where(and(eq(enrollment.userId, user.id), eq(enrollment.slotId, data.slotId)))
-
     return { ok: true }
   })

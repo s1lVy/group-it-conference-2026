@@ -1,53 +1,67 @@
 import { createFileRoute, useRouter, Link } from '@tanstack/react-router'
 import { useTransition, useState } from 'react'
 import BetterAuthHeader from '#/integrations/better-auth/header-user'
-import { getScheduleData, enroll, unenroll, type WorkshopSessionPublic } from '#/lib/enrollment'
+import { getScheduleData, enroll, unenroll, type WorkshopSessionPublic, type AgendaSlotPublic } from '#/lib/enrollment'
 
 export const Route = createFileRoute('/')({
   loader: () => getScheduleData(),
   component: Home,
 })
 
-// ─── Fixed agenda structure (labels only — workshops come from DB) ─────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type SessionType = 'workshop' | 'break' | 'plenary' | 'networking'
 
-interface FixedSlot {
+interface ComputedSlot {
   id: string
   time: string
   title: string
   type: SessionType
   note?: string
+  location?: string | null
   isWorkshopSlot?: boolean
+  sortOrder: number
 }
 
-interface FixedDay {
-  day: string
+interface ComputedDay {
+  dayId: string
+  label: string
   date: string
-  slots: FixedSlot[]
+  slots: ComputedSlot[]
 }
 
-const AGENDA: FixedDay[] = [
-  {
-    day: 'Day 1',
-    date: 'Wednesday, 10 June 2026',
-    slots: [
-      { id: 'day1-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true },
-      { id: 'day1-lunch', time: '12:00', title: 'Lunch Break', type: 'break', note: 'All groups' },
-      { id: 'day1-afternoon', time: '13:00', title: 'Parallel Workshop Sessions — Afternoon', type: 'workshop', isWorkshopSlot: true },
-      { id: 'day1-evening', time: 'Evening', title: 'Dinner & Networking', type: 'networking', note: 'All groups' },
-    ],
-  },
-  {
-    day: 'Day 2',
-    date: 'Thursday, 11 June 2026',
-    slots: [
-      { id: 'day2-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true },
-      { id: 'day2-lunch', time: '12:00', title: 'Lunch Break', type: 'break', note: 'All groups' },
-      { id: 'day2-plenary', time: '13:00', title: 'QA-Sessions & Wrap Up', type: 'plenary', note: 'Plenary — All Groups — Main Hall' },
-    ],
-  },
-]
+// Hardcoded workshop slot definitions — these correspond to workshopSession.slotId values
+const WORKSHOP_SLOTS: Record<string, ComputedSlot> = {
+  'day1-morning': { id: 'day1-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true, sortOrder: 10 },
+  'day1-afternoon': { id: 'day1-afternoon', time: '13:00', title: 'Parallel Workshop Sessions — Afternoon', type: 'workshop', isWorkshopSlot: true, sortOrder: 30 },
+  'day2-morning': { id: 'day2-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true, sortOrder: 10 },
+}
+
+const DAY_META: Record<string, { label: string; date: string; workshopSlots: string[] }> = {
+  day1: { label: 'Day 1', date: 'Wednesday, 10 June 2026', workshopSlots: ['day1-morning', 'day1-afternoon'] },
+  day2: { label: 'Day 2', date: 'Thursday, 11 June 2026', workshopSlots: ['day2-morning'] },
+}
+
+function buildAgenda(agendaSlots: AgendaSlotPublic[]): ComputedDay[] {
+  const days: ComputedDay[] = []
+  for (const [dayId, meta] of Object.entries(DAY_META)) {
+    const dbSlots: ComputedSlot[] = agendaSlots
+      .filter((s) => s.dayId === dayId)
+      .map((s) => ({
+        id: s.id,
+        time: s.time,
+        title: s.title,
+        type: s.type as SessionType,
+        note: s.note ?? undefined,
+        location: s.location,
+        sortOrder: s.sortOrder,
+      }))
+    const workshopSlots = meta.workshopSlots.map((sid) => WORKSHOP_SLOTS[sid]).filter(Boolean)
+    const allSlots = [...workshopSlots, ...dbSlots].sort((a, b) => a.sortOrder - b.sortOrder)
+    days.push({ dayId, label: meta.label, date: meta.date, slots: allSlots })
+  }
+  return days
+}
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -192,7 +206,7 @@ function SlotCard({
   onUnenroll,
   pendingSlot,
 }: {
-  slot: FixedSlot
+  slot: ComputedSlot
   workshops: WorkshopSessionPublic[]
   enrollments: Record<string, string>
   onEnroll: (slotId: string, workshopId: string) => void
@@ -241,7 +255,7 @@ function SlotCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function Home() {
-  const { sessions, enrollments: enrollmentList, isAdmin } = Route.useLoaderData()
+  const { sessions, enrollments: enrollmentList, agendaSlots, isAdmin } = Route.useLoaderData()
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [pendingSlot, setPendingSlot] = useState<string | null>(null)
@@ -258,6 +272,8 @@ function Home() {
   for (const s of sessions) {
     ;(sessionsBySlot[s.slotId] ??= []).push(s)
   }
+
+  const agenda = buildAgenda(agendaSlots)
 
   function handleEnroll(slotId: string, workshopId: string) {
     setPendingSlot(slotId)
@@ -355,10 +371,10 @@ function Home() {
         <GroupLegend />
 
         <div className="space-y-10">
-          {AGENDA.map((day) => (
-            <section key={day.day}>
+          {agenda.map((day) => (
+            <section key={day.dayId}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full">{day.day}</div>
+                <div className="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full">{day.label}</div>
                 <h2 className="text-lg font-semibold text-neutral-800">{day.date}</h2>
               </div>
               <div className="space-y-3">
