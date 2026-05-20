@@ -593,6 +593,10 @@ function AdminLayout() {
   const { sessions, agendaSlots } = Route.useLoaderData()
   const router = useRouter()
 
+  // Bumped whenever loader data refreshes — used as a key suffix to force
+  // card remounts so transient UI state (confirmDelete, etc.) resets.
+  const reloadKey = sessions.length + ':' + agendaSlots.length + ':' + sessions.map(s => s.id).join(',')
+
   const [sessionModal, setSessionModal] = useState<{ sessionId: string | null } | null>(null)
   const [agendaModal, setAgendaModal] = useState<{ dayId: string; existing: AgendaSlotRow | null } | null>(null)
   const [enrolleePanel, setEnrolleePanel] = useState<WorkshopSessionRow | null>(null)
@@ -735,7 +739,7 @@ function AdminLayout() {
                           <div className="pl-16 grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {slotSessions.map((s) => (
                               <WorkshopCard
-                                key={s.id}
+                                key={s.id + reloadKey}
                                 s={s}
                                 onDelete={handleDeleteSession}
                                 onEdit={(id) => setSessionModal({ sessionId: id })}
@@ -770,7 +774,7 @@ function AdminLayout() {
                       <div className="pl-16 space-y-2">
                         {dayAgendaSlots.map((slot) => (
                           <AgendaItemRow
-                            key={slot.id}
+                            key={slot.id + reloadKey}
                             slot={slot}
                             onEdit={(s) => setAgendaModal({ dayId: day.id, existing: s })}
                             onDelete={handleDeleteAgendaSlot}
