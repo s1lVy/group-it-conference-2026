@@ -113,13 +113,16 @@ export const workshopSession = pgTable(
   ],
 )
 
-// Users granted admin access (by email or userId).
+// Users granted elevated access.
+// role: 'organizer' — can manage sessions/agenda
+//       'admin'     — organizer + can assign roles
 export const adminUser = pgTable("admin_user", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .unique()
     .references(() => user.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default("organizer"), // 'organizer' | 'admin'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 

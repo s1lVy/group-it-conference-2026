@@ -11,10 +11,14 @@ import {
   createAgendaSlot,
   updateAgendaSlot,
   deleteAgendaSlot,
+  getUsers,
+  setUserRole,
   type WorkshopSessionRow,
   type AgendaSlotRow,
   type EnrolleeRow,
   type FeedbackRow,
+  type UserRow,
+  type UserRole,
 } from '#/lib/admin'
 import BetterAuthHeader from '#/integrations/better-auth/header-user'
 
@@ -587,10 +591,91 @@ function AgendaItemRow({ slot, onEdit, onDelete }: {
   )
 }
 
+// ─── Role manager (admin only) ────────────────────────────────────────────────
+
+const ROLE_LABELS: Record<UserRole, string> = { organizer: 'Organizer', admin: 'Admin' }
+const ROLE_COLORS: Record<UserRole, string> = { organizer: 'bg-teal-100 text-teal-700', admin: 'bg-violet-100 text-violet-700' }
+
+function RoleManager({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const [users, setUsers] = useState<UserRow[] | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useState(() => {
+    getUsers().then(setUsers).catch((e) => setError(e?.message ?? 'Failed to load users'))
+  })
+
+  async function handleSetRole(userId: string, role: UserRole | null) {
+    setSaving(userId)
+    setError(null)
+    try {
+      await setUserRole({ data: { userId, role } })
+      const updated = await getUsers()
+      setUsers(updated)
+      onChanged()
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to update role')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 shrink-0">
+          <h2 className="text-base font-semibold text-neutral-900">Manage Roles</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+          {users === null ? (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {users.map((u) => (
+                <div key={u.id} className="flex items-center gap-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-neutral-900 truncate">{u.name}</p>
+                    <p className="text-xs text-neutral-500 truncate">{u.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {u.role && (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role]}`}>
+                        {ROLE_LABELS[u.role]}
+                      </span>
+                    )}
+                    <select
+                      disabled={saving === u.id}
+                      value={u.role ?? ''}
+                      onChange={(e) => handleSetRole(u.id, (e.target.value as UserRole) || null)}
+                      className="text-xs border border-neutral-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50"
+                    >
+                      <option value="">User</option>
+                      <option value="organizer">Organizer</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main admin page ──────────────────────────────────────────────────────────
 
 function AdminLayout() {
-  const { sessions, agendaSlots } = Route.useLoaderData()
+  const { sessions, agendaSlots, role } = Route.useLoaderData()
   const router = useRouter()
 
   // Bumped whenever loader data refreshes — used as a key suffix to force
@@ -601,6 +686,7 @@ function AdminLayout() {
   const [agendaModal, setAgendaModal] = useState<{ dayId: string; existing: AgendaSlotRow | null } | null>(null)
   const [enrolleePanel, setEnrolleePanel] = useState<WorkshopSessionRow | null>(null)
   const [feedbackPanel, setFeedbackPanel] = useState<WorkshopSessionRow | null>(null)
+  const [showRoleManager, setShowRoleManager] = useState(false)
 
   function invalidate() { router.invalidate() }
 
@@ -681,17 +767,36 @@ function AdminLayout() {
         />
       )}
 
+      {showRoleManager && role === 'admin' && (
+        <RoleManager onClose={() => setShowRoleManager(false)} onChanged={invalidate} />
+      )}
+
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-800 transition-colors">← Schedule</Link>
             <span className="text-neutral-300">|</span>
             <div>
-              <h1 className="text-lg font-bold text-neutral-900">Admin — Event Schedule</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-neutral-900">Event Schedule</h1>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${role === 'admin' ? 'bg-violet-100 text-violet-700' : 'bg-teal-100 text-teal-700'}`}>
+                  {role === 'admin' ? 'Admin' : 'Organizer'}
+                </span>
+              </div>
               <p className="text-xs text-neutral-500">Group IT Conference 2026</p>
             </div>
           </div>
-          <BetterAuthHeader />
+          <div className="flex items-center gap-3">
+            {role === 'admin' && (
+              <button
+                onClick={() => setShowRoleManager(true)}
+                className="h-8 px-3 text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded transition-colors"
+              >
+                Manage roles
+              </button>
+            )}
+            <BetterAuthHeader />
+          </div>
         </div>
       </header>
 

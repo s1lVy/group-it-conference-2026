@@ -31,18 +31,34 @@ function friendlyDbError(err: unknown): never {
   throw new Error('An unexpected error occurred. Please try again.')
 }
 
-async function requireAdmin() {
+// Returns the adminUser row for the current user, or redirects.
+async function getAdminRow() {
   const request = getRequest()
   const session = await auth.api.getSession({ headers: request.headers })
   if (!session?.user) throw redirect({ to: '/login' })
-  const admin = await db.query.adminUser.findFirst({
+  const row = await db.query.adminUser.findFirst({
     where: eq(adminUser.userId, session.user.id),
   })
-  if (!admin) throw redirect({ to: '/' })
-  return session.user
+  if (!row) throw redirect({ to: '/' })
+  return { authUser: session.user, adminRow: row }
+}
+
+// Organizer OR admin — can manage sessions and agenda slots.
+async function requireOrganizer() {
+  const { authUser } = await getAdminRow()
+  return authUser
+}
+
+// Admin only — can assign roles.
+async function requireAdmin() {
+  const { authUser, adminRow } = await getAdminRow()
+  if (adminRow.role !== 'admin') throw new Error('Forbidden: admin role required')
+  return authUser
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export type UserRole = 'organizer' | 'admin'
 
 export type WorkshopSessionRow = typeof workshopSession.$inferSelect & {
   enrollmentCount: number
@@ -63,17 +79,25 @@ export type FeedbackRow = {
   submittedAt: Date
 }
 
+export type UserRow = {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  role: UserRole | null  // null = regular user
+}
+
 // ─── Main admin data load ──────────────────────────────────────────────────────
 
 export const getAdminData = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<{ sessions: WorkshopSessionRow[]; agendaSlots: AgendaSlotRow[]; isAdmin: boolean }> => {
+  async (): Promise<{ sessions: WorkshopSessionRow[]; agendaSlots: AgendaSlotRow[]; role: UserRole }> => {
     const request = getRequest()
     const session = await auth.api.getSession({ headers: request.headers })
     if (!session?.user) throw redirect({ to: '/login' })
-    const admin = await db.query.adminUser.findFirst({
+    const row = await db.query.adminUser.findFirst({
       where: eq(adminUser.userId, session.user.id),
     })
-    if (!admin) throw redirect({ to: '/' })
+    if (!row) throw redirect({ to: '/' })
 
     const sessions = await db
       .select({
@@ -97,7 +121,7 @@ export const getAdminData = createServerFn({ method: 'GET' }).handler(
       .from(agendaSlot)
       .orderBy(agendaSlot.dayId, agendaSlot.sortOrder)
 
-    return { sessions, agendaSlots, isAdmin: true }
+    return { sessions, agendaSlots, role: row.role as UserRole }
   },
 )
 
@@ -106,7 +130,7 @@ export const getAdminData = createServerFn({ method: 'GET' }).handler(
 export const getEnrollees = createServerFn({ method: 'GET' })
   .inputValidator((data: { workshopId: string }) => data)
   .handler(async ({ data }): Promise<EnrolleeRow[]> => {
-    await requireAdmin()
+    await requireOrganizer()
     const rows = await db
       .select({
         userId: user.id,
@@ -126,7 +150,7 @@ export const getEnrollees = createServerFn({ method: 'GET' })
 export const getSessionForEdit = createServerFn({ method: 'GET' })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    await requireAdmin()
+    await requireOrganizer()
     const row = await db.query.workshopSession.findFirst({
       where: eq(workshopSession.id, data.id),
     })
@@ -137,7 +161,7 @@ export const getSessionForEdit = createServerFn({ method: 'GET' })
 export const createSession = createServerFn({ method: 'POST' })
   .inputValidator((data: { slotId: string; group: string; topic: string; location: string; maxParticipants: number }) => data)
   .handler(async ({ data }) => {
-    await requireAdmin()
+    await requireOrganizer()
     try {
       await db.insert(workshopSession).values({
         id: generateId(),
@@ -154,7 +178,7 @@ export const createSession = createServerFn({ method: 'POST' })
 export const updateSession = createServerFn({ method: 'POST' })
   .inputValidator((data: { id: string; slotId: string; group: string; topic: string; location: string; maxParticipants: number }) => data)
   .handler(async ({ data }) => {
-    await requireAdmin()
+    await requireOrganizer()
     try {
       await db
         .update(workshopSession)
@@ -174,7 +198,7 @@ export const updateSession = createServerFn({ method: 'POST' })
 export const deleteSession = createServerFn({ method: 'POST' })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    await requireAdmin()
+    await requireOrganizer()
     await db.delete(workshopSession).where(eq(workshopSession.id, data.id))
     return { ok: true }
   })
@@ -184,7 +208,7 @@ export const deleteSession = createServerFn({ method: 'POST' })
 export const createAgendaSlot = createServerFn({ method: 'POST' })
   .inputValidator((data: { dayId: string; time: string; title: string; type: string; note: string; location: string; sortOrder: number }) => data)
   .handler(async ({ data }) => {
-    await requireAdmin()
+    await requireOrganizer()
     await db.insert(agendaSlot).values({
       id: generateId(),
       dayId: data.dayId,
@@ -201,7 +225,7 @@ export const createAgendaSlot = createServerFn({ method: 'POST' })
 export const updateAgendaSlot = createServerFn({ method: 'POST' })
   .inputValidator((data: { id: string; dayId: string; time: string; title: string; type: string; note: string; location: string; sortOrder: number }) => data)
   .handler(async ({ data }) => {
-    await requireAdmin()
+    await requireOrganizer()
     await db
       .update(agendaSlot)
       .set({
@@ -220,8 +244,38 @@ export const updateAgendaSlot = createServerFn({ method: 'POST' })
 export const deleteAgendaSlot = createServerFn({ method: 'POST' })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    await requireAdmin()
+    await requireOrganizer()
     await db.delete(agendaSlot).where(eq(agendaSlot.id, data.id))
+    return { ok: true }
+  })
+
+// ─── Role management (admin only) ─────────────────────────────────────────────
+
+export const getUsers = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<UserRow[]> => {
+    await requireAdmin()
+    const allUsers = await db.select({ id: user.id, name: user.name, email: user.email, image: user.image }).from(user).orderBy(user.name)
+    const admins = await db.select({ userId: adminUser.userId, role: adminUser.role }).from(adminUser)
+    const roleMap = new Map(admins.map((a) => [a.userId, a.role as UserRole]))
+    return allUsers.map((u) => ({ ...u, role: roleMap.get(u.id) ?? null }))
+  },
+)
+
+export const setUserRole = createServerFn({ method: 'POST' })
+  .inputValidator((data: { userId: string; role: UserRole | null }) => data)
+  .handler(async ({ data }) => {
+    const caller = await requireAdmin()
+    if (caller.id === data.userId) throw new Error("You can't change your own role.")
+    if (data.role === null) {
+      await db.delete(adminUser).where(eq(adminUser.userId, data.userId))
+    } else {
+      const existing = await db.query.adminUser.findFirst({ where: eq(adminUser.userId, data.userId) })
+      if (existing) {
+        await db.update(adminUser).set({ role: data.role }).where(eq(adminUser.userId, data.userId))
+      } else {
+        await db.insert(adminUser).values({ id: generateId(), userId: data.userId, role: data.role })
+      }
+    }
     return { ok: true }
   })
 
@@ -231,10 +285,10 @@ export const checkIsAdmin = createServerFn({ method: 'GET' }).handler(async () =
   const request = getRequest()
   const session = await auth.api.getSession({ headers: request.headers })
   if (!session?.user) return false
-  const admin = await db.query.adminUser.findFirst({
+  const row = await db.query.adminUser.findFirst({
     where: eq(adminUser.userId, session.user.id),
   })
-  return !!admin
+  return !!row
 })
 
 // ─── Anonymized feedback for a workshop session ───────────────────────────────
@@ -242,7 +296,7 @@ export const checkIsAdmin = createServerFn({ method: 'GET' }).handler(async () =
 export const getFeedbackForSession = createServerFn({ method: 'GET' })
   .inputValidator((data: { workshopId: string }) => data)
   .handler(async ({ data }): Promise<{ rows: FeedbackRow[]; avgRating: number | null; counts: number[] }> => {
-    await requireAdmin()
+    await requireOrganizer()
 
     const rows = await db
       .select({
@@ -259,3 +313,4 @@ export const getFeedbackForSession = createServerFn({ method: 'GET' })
 
     return { rows, avgRating, counts }
   })
+

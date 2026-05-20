@@ -402,7 +402,7 @@ function SlotCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function Home() {
-  const { sessions, enrollments: enrollmentList, agendaSlots, feedbacks: feedbackList, isAdmin } = Route.useLoaderData()
+  const { sessions, enrollments: enrollmentList, agendaSlots, feedbacks: feedbackList, isPrivileged } = Route.useLoaderData()
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [pendingSlot, setPendingSlot] = useState<string | null>(null)
@@ -462,7 +462,7 @@ function Home() {
             <p className="text-xs text-neutral-500 mt-0.5">10–11 June 2026</p>
           </div>
           <div className="flex items-center gap-3">
-            {isAdmin && (
+            {isPrivileged && (
               <Link
                 to="/admin"
                 className="h-8 px-3 text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded transition-colors flex items-center gap-1.5"

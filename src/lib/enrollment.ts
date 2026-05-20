@@ -50,7 +50,7 @@ export const getScheduleData = createServerFn({ method: 'GET' }).handler(
     enrollments: { slotId: string; workshopId: string }[]
     agendaSlots: AgendaSlotPublic[]
     feedbacks: FeedbackPublic[]
-    isAdmin: boolean
+    isPrivileged: boolean
   }> => {
     const request = getRequest()
     const authSession = await auth.api.getSession({ headers: request.headers })
@@ -99,7 +99,7 @@ export const getScheduleData = createServerFn({ method: 'GET' }).handler(
       enrollments: userEnrollments,
       agendaSlots: slots,
       feedbacks: userFeedbacks,
-      isAdmin: !!admin,
+      isPrivileged: !!admin,
     }
   },
 )
