@@ -9,9 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AdminSessionsNewRouteImport } from './routes/admin/sessions/new'
+import { Route as AdminSessionsIdRouteImport } from './routes/admin/sessions/$id'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -22,35 +36,92 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSessionsNewRoute = AdminSessionsNewRouteImport.update({
+  id: '/sessions/new',
+  path: '/sessions/new',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSessionsIdRoute = AdminSessionsIdRouteImport.update({
+  id: '/sessions/$id',
+  path: '/sessions/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/admin/sessions/new': typeof AdminSessionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/admin/sessions/new': typeof AdminSessionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/admin/sessions/$id': typeof AdminSessionsIdRoute
+  '/admin/sessions/new': typeof AdminSessionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/admin/sessions/$id'
+    | '/admin/sessions/new'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/auth/$'
-  id: '__root__' | '/' | '/api/auth/$'
+  to:
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/admin/sessions/$id'
+    | '/admin/sessions/new'
+    | '/api/auth/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/admin/sessions/$id'
+    | '/admin/sessions/new'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  LoginRoute: typeof LoginRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -65,11 +136,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/sessions/new': {
+      id: '/admin/sessions/new'
+      path: '/sessions/new'
+      fullPath: '/admin/sessions/new'
+      preLoaderRoute: typeof AdminSessionsNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/sessions/$id': {
+      id: '/admin/sessions/$id'
+      path: '/sessions/$id'
+      fullPath: '/admin/sessions/$id'
+      preLoaderRoute: typeof AdminSessionsIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminSessionsIdRoute: typeof AdminSessionsIdRoute
+  AdminSessionsNewRoute: typeof AdminSessionsNewRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminSessionsIdRoute: AdminSessionsIdRoute,
+  AdminSessionsNewRoute: AdminSessionsNewRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  LoginRoute: LoginRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

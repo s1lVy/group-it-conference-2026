@@ -1,112 +1,50 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { useTransition } from 'react'
+import { createFileRoute, useRouter, Link } from '@tanstack/react-router'
+import { useTransition, useState } from 'react'
 import BetterAuthHeader from '#/integrations/better-auth/header-user'
-import { authClient } from '#/lib/auth-client'
-import { getScheduleData, enroll, unenroll } from '#/lib/enrollment'
+import { getScheduleData, enroll, unenroll, type WorkshopSessionPublic } from '#/lib/enrollment'
 
 export const Route = createFileRoute('/')({
   loader: () => getScheduleData(),
   component: Home,
 })
 
-// ─── Agenda data ─────────────────────────────────────────────────────────────
+// ─── Fixed agenda structure (labels only — workshops come from DB) ─────────────
 
 type SessionType = 'workshop' | 'break' | 'plenary' | 'networking'
 
-interface Workshop {
-  id: string
-  group: 'A' | 'B' | 'C' | 'all'
-  topic: string
-  location: string
-}
-
-interface Slot {
+interface FixedSlot {
   id: string
   time: string
   title: string
   type: SessionType
-  workshops?: Workshop[]
   note?: string
+  isWorkshopSlot?: boolean
 }
 
-interface Day {
+interface FixedDay {
   day: string
   date: string
-  slots: Slot[]
+  slots: FixedSlot[]
 }
 
-const agenda: Day[] = [
+const AGENDA: FixedDay[] = [
   {
     day: 'Day 1',
     date: 'Wednesday, 10 June 2026',
     slots: [
-      {
-        id: 'day1-morning',
-        time: '09:00',
-        title: 'Parallel Workshop Sessions — Morning',
-        type: 'workshop',
-        workshops: [
-          { id: 'sales-it', group: 'A', topic: 'Sales IT', location: 'Room A' },
-          { id: 'digital-business', group: 'B', topic: 'Digital Business', location: 'Room B' },
-          { id: 'aftersales', group: 'C', topic: 'AfterSales', location: 'Room C' },
-        ],
-      },
-      {
-        id: 'day1-lunch',
-        time: '12:00',
-        title: 'Lunch Break',
-        type: 'break',
-        note: 'All groups',
-      },
-      {
-        id: 'day1-afternoon',
-        time: '13:00',
-        title: 'Parallel Workshop Sessions — Afternoon',
-        type: 'workshop',
-        workshops: [
-          { id: 'sales-it', group: 'B', topic: 'Sales IT', location: 'Room A' },
-          { id: 'digital-business', group: 'C', topic: 'Digital Business', location: 'Room B' },
-          { id: 'aftersales', group: 'A', topic: 'AfterSales', location: 'Room C' },
-        ],
-      },
-      {
-        id: 'day1-evening',
-        time: 'Evening',
-        title: 'Dinner & Networking',
-        type: 'networking',
-        note: 'All groups',
-      },
+      { id: 'day1-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true },
+      { id: 'day1-lunch', time: '12:00', title: 'Lunch Break', type: 'break', note: 'All groups' },
+      { id: 'day1-afternoon', time: '13:00', title: 'Parallel Workshop Sessions — Afternoon', type: 'workshop', isWorkshopSlot: true },
+      { id: 'day1-evening', time: 'Evening', title: 'Dinner & Networking', type: 'networking', note: 'All groups' },
     ],
   },
   {
     day: 'Day 2',
     date: 'Thursday, 11 June 2026',
     slots: [
-      {
-        id: 'day2-morning',
-        time: '09:00',
-        title: 'Parallel Workshop Sessions — Morning',
-        type: 'workshop',
-        workshops: [
-          { id: 'sales-it-wheels', group: 'C', topic: 'Sales IT (Wheels)', location: 'Room A' },
-          { id: 'digital-business', group: 'A', topic: 'Digital Business', location: 'Room B' },
-          { id: 'aftersales', group: 'B', topic: 'AfterSales', location: 'Room C' },
-        ],
-      },
-      {
-        id: 'day2-lunch',
-        time: '12:00',
-        title: 'Lunch Break',
-        type: 'break',
-        note: 'All groups',
-      },
-      {
-        id: 'day2-plenary',
-        time: '13:00',
-        title: 'QA-Sessions & Wrap Up',
-        type: 'plenary',
-        note: 'Plenary — All Groups — Main Hall',
-      },
+      { id: 'day2-morning', time: '09:00', title: 'Parallel Workshop Sessions — Morning', type: 'workshop', isWorkshopSlot: true },
+      { id: 'day2-lunch', time: '12:00', title: 'Lunch Break', type: 'break', note: 'All groups' },
+      { id: 'day2-plenary', time: '13:00', title: 'QA-Sessions & Wrap Up', type: 'plenary', note: 'Plenary — All Groups — Main Hall' },
     ],
   },
 ]
@@ -117,14 +55,12 @@ const GROUP_COLORS: Record<string, string> = {
   A: 'bg-blue-50 text-blue-900 border-blue-200',
   B: 'bg-emerald-50 text-emerald-900 border-emerald-200',
   C: 'bg-violet-50 text-violet-900 border-violet-200',
-  all: 'bg-amber-50 text-amber-900 border-amber-200',
 }
 
 const GROUP_BADGE: Record<string, string> = {
   A: 'bg-blue-600 text-white',
   B: 'bg-emerald-600 text-white',
   C: 'bg-violet-600 text-white',
-  all: 'bg-amber-500 text-white',
 }
 
 const TYPE_BORDER: Record<SessionType, string> = {
@@ -150,22 +86,6 @@ const TYPE_LABEL: Record<SessionType, string> = {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function GroupBadge({ group }: { group: string }) {
-  return (
-    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ${GROUP_BADGE[group]}`}>
-      {group === 'all' ? '★' : group}
-    </span>
-  )
-}
-
-function TypePill({ type }: { type: SessionType }) {
-  return (
-    <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${TYPE_PILL[type]}`}>
-      {TYPE_LABEL[type]}
-    </span>
-  )
-}
-
 function GroupLegend() {
   return (
     <div className="flex flex-wrap gap-4 mb-6">
@@ -179,30 +99,42 @@ function GroupLegend() {
   )
 }
 
-// ─── Workshop card with enroll button ─────────────────────────────────────────
+function TypePill({ type }: { type: SessionType }) {
+  return (
+    <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${TYPE_PILL[type]}`}>
+      {TYPE_LABEL[type]}
+    </span>
+  )
+}
 
 function WorkshopCard({
-  workshop,
+  ws,
   slotId,
   enrolled,
-  isSignedIn,
+  full,
   onEnroll,
   onUnenroll,
   pending,
 }: {
-  workshop: Workshop
+  ws: WorkshopSessionPublic
   slotId: string
   enrolled: boolean
-  isSignedIn: boolean
+  full: boolean
   onEnroll: (slotId: string, workshopId: string) => void
   onUnenroll: (slotId: string) => void
   pending: boolean
 }) {
+  const pct = Math.min(100, (ws.enrollmentCount / ws.maxParticipants) * 100)
+  const colors = GROUP_COLORS[ws.group] ?? 'bg-neutral-50 text-neutral-900 border-neutral-200'
+  const badge = GROUP_BADGE[ws.group] ?? 'bg-neutral-600 text-white'
+
   return (
-    <div className={`rounded-lg border px-4 py-3 flex flex-col gap-2 transition-all ${GROUP_COLORS[workshop.group]} ${enrolled ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`}>
+    <div className={`rounded-lg border px-4 py-3 flex flex-col gap-2 transition-all ${colors} ${enrolled ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`}>
       <div className="flex items-center gap-2">
-        <GroupBadge group={workshop.group} />
-        <span className="text-xs font-semibold opacity-70">Group {workshop.group}</span>
+        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ${badge}`}>
+          {ws.group}
+        </span>
+        <span className="text-xs font-semibold opacity-70">Group {ws.group}</span>
         {enrolled && (
           <span className="ml-auto text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
             Enrolled
@@ -210,61 +142,64 @@ function WorkshopCard({
         )}
       </div>
 
-      <p className="text-sm font-semibold leading-tight">{workshop.topic}</p>
+      <p className="text-sm font-semibold leading-tight">{ws.topic}</p>
 
       <p className="text-xs opacity-60 flex items-center gap-1">
         <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        {workshop.location}
+        {ws.location}
       </p>
 
-      {isSignedIn && (
-        enrolled ? (
-          <button
-            disabled={pending}
-            onClick={() => onUnenroll(slotId)}
-            className="mt-1 w-full text-xs font-medium py-1.5 rounded border border-current opacity-60 hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
-          >
-            {pending ? 'Saving…' : 'Remove enrollment'}
-          </button>
-        ) : (
-          <button
-            disabled={pending}
-            onClick={() => onEnroll(slotId, workshop.id)}
-            className="mt-1 w-full text-xs font-medium py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {pending ? 'Saving…' : 'Enroll'}
-          </button>
-        )
-      )}
+      {/* Capacity bar */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-1.5 bg-black/10 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-red-500' : 'bg-indigo-500'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-xs opacity-60 shrink-0">{ws.enrollmentCount}/{ws.maxParticipants}</span>
+      </div>
 
-      {!isSignedIn && (
-        <p className="text-xs opacity-50 italic">Sign in to enroll</p>
+      {enrolled ? (
+        <button
+          disabled={pending}
+          onClick={() => onUnenroll(slotId)}
+          className="mt-1 w-full text-xs font-medium py-1.5 rounded border border-current opacity-60 hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
+        >
+          {pending ? 'Saving…' : 'Remove enrollment'}
+        </button>
+      ) : (
+        <button
+          disabled={pending || (full && !enrolled)}
+          onClick={() => onEnroll(slotId, ws.id)}
+          className="mt-1 w-full text-xs font-medium py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {pending ? 'Saving…' : full ? 'Full' : 'Enroll'}
+        </button>
       )}
     </div>
   )
 }
 
-// ─── Slot card ────────────────────────────────────────────────────────────────
-
 function SlotCard({
   slot,
+  workshops,
   enrollments,
-  isSignedIn,
   onEnroll,
   onUnenroll,
   pendingSlot,
 }: {
-  slot: Slot
+  slot: FixedSlot
+  workshops: WorkshopSessionPublic[]
   enrollments: Record<string, string>
-  isSignedIn: boolean
   onEnroll: (slotId: string, workshopId: string) => void
   onUnenroll: (slotId: string) => void
   pendingSlot: string | null
 }) {
-  const enrolledWorkshop = enrollments[slot.id]
+  const enrolledWorkshopId = enrollments[slot.id]
 
   return (
     <div className={`rounded-xl bg-white shadow-sm border border-neutral-200 overflow-hidden ${TYPE_BORDER[slot.type]}`}>
@@ -278,21 +213,25 @@ function SlotCard({
           <TypePill type={slot.type} />
         </div>
 
-        {slot.workshops && slot.workshops.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-            {slot.workshops.map((w) => (
-              <WorkshopCard
-                key={w.id}
-                workshop={w}
-                slotId={slot.id}
-                enrolled={enrolledWorkshop === w.id}
-                isSignedIn={isSignedIn}
-                onEnroll={onEnroll}
-                onUnenroll={onUnenroll}
-                pending={pendingSlot === slot.id}
-              />
-            ))}
-          </div>
+        {slot.isWorkshopSlot && (
+          workshops.length === 0 ? (
+            <p className="text-sm text-neutral-400 italic mt-2">No sessions scheduled yet.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+              {workshops.map((ws) => (
+                <WorkshopCard
+                  key={ws.id}
+                  ws={ws}
+                  slotId={slot.id}
+                  enrolled={enrolledWorkshopId === ws.id}
+                  full={ws.enrollmentCount >= ws.maxParticipants && enrolledWorkshopId !== ws.id}
+                  onEnroll={onEnroll}
+                  onUnenroll={onUnenroll}
+                  pending={pendingSlot === slot.id}
+                />
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>
@@ -302,34 +241,49 @@ function SlotCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function Home() {
-  const initialEnrollments = Route.useLoaderData()
+  const { sessions, enrollments: enrollmentList, isAdmin } = Route.useLoaderData()
   const router = useRouter()
-  const { data: session } = authClient.useSession()
-  const isSignedIn = !!session?.user
   const [, startTransition] = useTransition()
-  const [pendingSlot, setPendingSlot] = React.useState<string | null>(null)
+  const [pendingSlot, setPendingSlot] = useState<string | null>(null)
+  const [enrollError, setEnrollError] = useState<string | null>(null)
 
-  // Build a slotId → workshopId map from loader data
+  // Build slotId → workshopId map
   const enrollments: Record<string, string> = {}
-  for (const e of initialEnrollments) {
+  for (const e of enrollmentList) {
     enrollments[e.slotId] = e.workshopId
+  }
+
+  // Build slotId → sessions map
+  const sessionsBySlot: Record<string, WorkshopSessionPublic[]> = {}
+  for (const s of sessions) {
+    ;(sessionsBySlot[s.slotId] ??= []).push(s)
   }
 
   function handleEnroll(slotId: string, workshopId: string) {
     setPendingSlot(slotId)
+    setEnrollError(null)
     startTransition(async () => {
-      await enroll({ data: { slotId, workshopId } })
-      router.invalidate()
-      setPendingSlot(null)
+      try {
+        await enroll({ data: { slotId, workshopId } })
+        router.invalidate()
+      } catch (err: any) {
+        setEnrollError(err?.message ?? 'Failed to enroll')
+      } finally {
+        setPendingSlot(null)
+      }
     })
   }
 
   function handleUnenroll(slotId: string) {
     setPendingSlot(slotId)
+    setEnrollError(null)
     startTransition(async () => {
-      await unenroll({ data: { slotId } })
-      router.invalidate()
-      setPendingSlot(null)
+      try {
+        await unenroll({ data: { slotId } })
+        router.invalidate()
+      } finally {
+        setPendingSlot(null)
+      }
     })
   }
 
@@ -341,24 +295,40 @@ function Home() {
             <h1 className="text-xl font-bold text-neutral-900">Group IT Conference 2026</h1>
             <p className="text-xs text-neutral-500 mt-0.5">10–11 June 2026</p>
           </div>
-          <BetterAuthHeader />
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="h-8 px-3 text-xs font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded transition-colors flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Admin
+              </Link>
+            )}
+            <BetterAuthHeader />
+          </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-neutral-900 mb-1">Event Schedule</h2>
-          <p className="text-neutral-500 text-sm">
-            {isSignedIn
-              ? 'Select one workshop per parallel session to enroll.'
-              : 'Sign in to enroll in workshop sessions.'}
-          </p>
+          <p className="text-neutral-500 text-sm">Select one workshop per parallel session to enroll.</p>
         </div>
+
+        {enrollError && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+            {enrollError}
+          </div>
+        )}
 
         <GroupLegend />
 
         <div className="space-y-10">
-          {agenda.map((day) => (
+          {AGENDA.map((day) => (
             <section key={day.day}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full">{day.day}</div>
@@ -369,8 +339,8 @@ function Home() {
                   <SlotCard
                     key={slot.id}
                     slot={slot}
+                    workshops={sessionsBySlot[slot.id] ?? []}
                     enrollments={enrollments}
-                    isSignedIn={isSignedIn}
                     onEnroll={handleEnroll}
                     onUnenroll={handleUnenroll}
                     pendingSlot={pendingSlot}
@@ -384,6 +354,3 @@ function Home() {
     </div>
   )
 }
-
-// Need React in scope for useTransition
-import React from 'react'
