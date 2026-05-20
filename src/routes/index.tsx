@@ -49,20 +49,27 @@ function parseSlotTime(slotId: string): string {
   return raw
 }
 
+// Convert a time string like "09:00" or "Evening" to minutes for sorting.
+// Non-parseable strings (e.g. "Evening") sort to end of day.
+function timeToMinutes(time: string): number {
+  const m = time.match(/^(\d{1,2}):(\d{2})$/)
+  if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10)
+  return 24 * 60 // non-clock strings sort last
+}
+
 function buildAgenda(agendaSlots: AgendaSlotPublic[], sessions: WorkshopSessionPublic[]): ComputedDay[] {
   // Collect unique slotIds and their parsed time
   const workshopSlotMap: Record<string, ComputedSlot> = {}
   for (const s of sessions) {
     if (!workshopSlotMap[s.slotId]) {
       const time = parseSlotTime(s.slotId)
-      const sortOrder = parseInt(time.replace(':', ''), 10)
       workshopSlotMap[s.slotId] = {
         id: s.slotId,
         time,
         title: 'Parallel Workshop Sessions',
         type: 'workshop',
         isWorkshopSlot: true,
-        sortOrder,
+        sortOrder: 0, // unused — we sort by time below
       }
     }
   }
@@ -81,7 +88,7 @@ function buildAgenda(agendaSlots: AgendaSlotPublic[], sessions: WorkshopSessionP
         sortOrder: s.sortOrder,
       }))
     const workshopSlots = Object.values(workshopSlotMap).filter((s) => s.id.startsWith(dayId + '-'))
-    const allSlots = [...workshopSlots, ...dbSlots].sort((a, b) => a.sortOrder - b.sortOrder)
+    const allSlots = [...workshopSlots, ...dbSlots].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
     days.push({ dayId, label: meta.label, date: meta.date, slots: allSlots })
   }
   return days
