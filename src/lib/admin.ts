@@ -10,6 +10,25 @@ function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
+// Map Postgres error codes / constraint names to user-friendly messages.
+function friendlyDbError(err: unknown): never {
+  const e = err as any
+  const code: string = e?.code ?? ''
+  const constraint: string = e?.constraint ?? ''
+  if (code === '23505') {
+    if (constraint === 'workshop_session_slot_group_unique')
+      throw new Error('A session for this group already exists at that time. Choose a different group or time.')
+    if (constraint === 'enrollment_user_slot_unique')
+      throw new Error('You are already enrolled in a session for this time slot.')
+    if (constraint === 'feedback_user_workshop_unique')
+      throw new Error('You have already submitted feedback for this session.')
+    throw new Error('A record with these details already exists.')
+  }
+  if (code === '23503') throw new Error('This record references something that no longer exists.')
+  if (code === '23502') throw new Error('A required field is missing.')
+  throw new Error(e?.message ?? 'An unexpected error occurred. Please try again.')
+}
+
 async function requireAdmin() {
   const request = getRequest()
   const session = await auth.api.getSession({ headers: request.headers })
@@ -117,14 +136,16 @@ export const createSession = createServerFn({ method: 'POST' })
   .inputValidator((data: { slotId: string; group: string; topic: string; location: string; maxParticipants: number }) => data)
   .handler(async ({ data }) => {
     await requireAdmin()
-    await db.insert(workshopSession).values({
-      id: generateId(),
-      slotId: data.slotId,
-      group: data.group,
-      topic: data.topic,
-      location: data.location.trim() || null,
-      maxParticipants: data.maxParticipants,
-    })
+    try {
+      await db.insert(workshopSession).values({
+        id: generateId(),
+        slotId: data.slotId,
+        group: data.group,
+        topic: data.topic,
+        location: data.location.trim() || null,
+        maxParticipants: data.maxParticipants,
+      })
+    } catch (err) { friendlyDbError(err) }
     return { ok: true }
   })
 
@@ -132,17 +153,19 @@ export const updateSession = createServerFn({ method: 'POST' })
   .inputValidator((data: { id: string; slotId: string; group: string; topic: string; location: string; maxParticipants: number }) => data)
   .handler(async ({ data }) => {
     await requireAdmin()
-    await db
-      .update(workshopSession)
-      .set({
-        slotId: data.slotId,
-        group: data.group,
-        topic: data.topic,
-        location: data.location.trim() || null,
-        maxParticipants: data.maxParticipants,
-        updatedAt: new Date(),
-      })
-      .where(eq(workshopSession.id, data.id))
+    try {
+      await db
+        .update(workshopSession)
+        .set({
+          slotId: data.slotId,
+          group: data.group,
+          topic: data.topic,
+          location: data.location.trim() || null,
+          maxParticipants: data.maxParticipants,
+          updatedAt: new Date(),
+        })
+        .where(eq(workshopSession.id, data.id))
+    } catch (err) { friendlyDbError(err) }
     return { ok: true }
   })
 
